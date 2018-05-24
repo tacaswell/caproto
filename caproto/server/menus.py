@@ -3,6 +3,7 @@ import inspect
 
 
 class Menu(enum.IntEnum):
+
     @classmethod
     def _set_strings(cls, value_to_string):
         cls._string_dict = value_to_string
@@ -27,9 +28,9 @@ class aSubEFLG(Menu):
 
 aSubEFLG._set_strings(
     {
-        aSubEFLG.NEVER: 'NEVER',
-        aSubEFLG.ON_CHANGE: 'ON CHANGE',
-        aSubEFLG.ALWAYS: 'ALWAYS',
+        aSubEFLG.NEVER: "NEVER",
+        aSubEFLG.ON_CHANGE: "ON CHANGE",
+        aSubEFLG.ALWAYS: "ALWAYS",
     }
 )
 
@@ -39,12 +40,7 @@ class aSubLFLG(Menu):
     READ = 1  # 'READ'
 
 
-aSubLFLG._set_strings(
-    {
-        aSubLFLG.IGNORE: 'IGNORE',
-        aSubLFLG.READ: 'READ',
-    }
-)
+aSubLFLG._set_strings({aSubLFLG.IGNORE: "IGNORE", aSubLFLG.READ: "READ"})
 
 
 class aaiPOST(Menu):
@@ -52,12 +48,7 @@ class aaiPOST(Menu):
     OnChange = 1  # 'On Change'
 
 
-aaiPOST._set_strings(
-    {
-        aaiPOST.Always: 'Always',
-        aaiPOST.OnChange: 'On Change',
-    }
-)
+aaiPOST._set_strings({aaiPOST.Always: "Always", aaiPOST.OnChange: "On Change"})
 
 
 class aaoPOST(Menu):
@@ -65,12 +56,7 @@ class aaoPOST(Menu):
     OnChange = 1  # 'On Change'
 
 
-aaoPOST._set_strings(
-    {
-        aaoPOST.Always: 'Always',
-        aaoPOST.OnChange: 'On Change',
-    }
-)
+aaoPOST._set_strings({aaoPOST.Always: "Always", aaoPOST.OnChange: "On Change"})
 
 
 class aoOIF(Menu):
@@ -78,12 +64,7 @@ class aoOIF(Menu):
     Incremental = 1  # 'Incremental'
 
 
-aoOIF._set_strings(
-    {
-        aoOIF.Full: 'Full',
-        aoOIF.Incremental: 'Incremental',
-    }
-)
+aoOIF._set_strings({aoOIF.Full: "Full", aoOIF.Incremental: "Incremental"})
 
 
 class calcoutDOPT(Menu):
@@ -92,10 +73,7 @@ class calcoutDOPT(Menu):
 
 
 calcoutDOPT._set_strings(
-    {
-        calcoutDOPT.Use_VAL: 'Use CALC',
-        calcoutDOPT.Use_OVAL: 'Use OCAL',
-    }
+    {calcoutDOPT.Use_VAL: "Use CALC", calcoutDOPT.Use_OVAL: "Use OCAL"}
 )
 
 
@@ -108,10 +86,10 @@ class calcoutINAV(Menu):
 
 calcoutINAV._set_strings(
     {
-        calcoutINAV.EXT_NC: 'Ext PV NC',
-        calcoutINAV.EXT: 'Ext PV OK',
-        calcoutINAV.LOC: 'Local PV',
-        calcoutINAV.CON: 'Constant',
+        calcoutINAV.EXT_NC: "Ext PV NC",
+        calcoutINAV.EXT: "Ext PV OK",
+        calcoutINAV.LOC: "Local PV",
+        calcoutINAV.CON: "Constant",
     }
 )
 
@@ -127,12 +105,12 @@ class calcoutOOPT(Menu):
 
 calcoutOOPT._set_strings(
     {
-        calcoutOOPT.Every_Time: 'Every Time',
-        calcoutOOPT.On_Change: 'On Change',
-        calcoutOOPT.When_Zero: 'When Zero',
-        calcoutOOPT.When_Non_zero: 'When Non-zero',
-        calcoutOOPT.Transition_To_Zero: 'Transition To Zero',
-        calcoutOOPT.Transition_To_Non_zero: 'Transition To Non-zero',
+        calcoutOOPT.Every_Time: "Every Time",
+        calcoutOOPT.On_Change: "On Change",
+        calcoutOOPT.When_Zero: "When Zero",
+        calcoutOOPT.When_Non_zero: "When Non-zero",
+        calcoutOOPT.Transition_To_Zero: "Transition To Zero",
+        calcoutOOPT.Transition_To_Non_zero: "Transition To Non-zero",
     }
 )
 
@@ -148,12 +126,12 @@ class compressALG(Menu):
 
 compressALG._set_strings(
     {
-        compressALG.N_to_1_Low_Value: 'N to 1 Low Value',
-        compressALG.N_to_1_High_Value: 'N to 1 High Value',
-        compressALG.N_to_1_Average: 'N to 1 Average',
-        compressALG.Average: 'Average',
-        compressALG.Circular_Buffer: 'Circular Buffer',
-        compressALG.N_to_1_Median: 'N to 1 Median',
+        compressALG.N_to_1_Low_Value: "N to 1 Low Value",
+        compressALG.N_to_1_High_Value: "N to 1 High Value",
+        compressALG.N_to_1_Average: "N to 1 Average",
+        compressALG.Average: "Average",
+        compressALG.Circular_Buffer: "Circular Buffer",
+        compressALG.N_to_1_Median: "N to 1 Median",
     }
 )
 
@@ -166,9 +144,9 @@ class dfanoutSELM(Menu):
 
 dfanoutSELM._set_strings(
     {
-        dfanoutSELM.All: 'All',
-        dfanoutSELM.Specified: 'Specified',
-        dfanoutSELM.Mask: 'Mask',
+        dfanoutSELM.All: "All",
+        dfanoutSELM.Specified: "Specified",
+        dfanoutSELM.Mask: "Mask",
     }
 )
 
@@ -181,9 +159,9 @@ class fanoutSELM(Menu):
 
 fanoutSELM._set_strings(
     {
-        fanoutSELM.All: 'All',
-        fanoutSELM.Specified: 'Specified',
-        fanoutSELM.Mask: 'Mask',
+        fanoutSELM.All: "All",
+        fanoutSELM.Specified: "Specified",
+        fanoutSELM.Mask: "Mask",
     }
 )
 
@@ -197,10 +175,10 @@ class histogramCMD(Menu):
 
 histogramCMD._set_strings(
     {
-        histogramCMD.Read: 'Read',
-        histogramCMD.Clear: 'Clear',
-        histogramCMD.Start: 'Start',
-        histogramCMD.Stop: 'Stop',
+        histogramCMD.Read: "Read",
+        histogramCMD.Clear: "Clear",
+        histogramCMD.Start: "Start",
+        histogramCMD.Stop: "Stop",
     }
 )
 
@@ -214,10 +192,10 @@ class menuAlarmSevr(Menu):
 
 menuAlarmSevr._set_strings(
     {
-        menuAlarmSevr.NO_ALARM: 'NO_ALARM',
-        menuAlarmSevr.MINOR: 'MINOR',
-        menuAlarmSevr.MAJOR: 'MAJOR',
-        menuAlarmSevr.INVALID: 'INVALID',
+        menuAlarmSevr.NO_ALARM: "NO_ALARM",
+        menuAlarmSevr.MINOR: "MINOR",
+        menuAlarmSevr.MAJOR: "MAJOR",
+        menuAlarmSevr.INVALID: "INVALID",
     }
 )
 
@@ -249,28 +227,28 @@ class menuAlarmStat(Menu):
 
 menuAlarmStat._set_strings(
     {
-        menuAlarmStat.NO_ALARM: 'NO_ALARM',
-        menuAlarmStat.READ: 'READ',
-        menuAlarmStat.WRITE: 'WRITE',
-        menuAlarmStat.HIHI: 'HIHI',
-        menuAlarmStat.HIGH: 'HIGH',
-        menuAlarmStat.LOLO: 'LOLO',
-        menuAlarmStat.LOW: 'LOW',
-        menuAlarmStat.STATE: 'STATE',
-        menuAlarmStat.COS: 'COS',
-        menuAlarmStat.COMM: 'COMM',
-        menuAlarmStat.TIMEOUT: 'TIMEOUT',
-        menuAlarmStat.HWLIMIT: 'HWLIMIT',
-        menuAlarmStat.CALC: 'CALC',
-        menuAlarmStat.SCAN: 'SCAN',
-        menuAlarmStat.LINK: 'LINK',
-        menuAlarmStat.SOFT: 'SOFT',
-        menuAlarmStat.BAD_SUB: 'BAD_SUB',
-        menuAlarmStat.UDF: 'UDF',
-        menuAlarmStat.DISABLE: 'DISABLE',
-        menuAlarmStat.SIMM: 'SIMM',
-        menuAlarmStat.READ_ACCESS: 'READ_ACCESS',
-        menuAlarmStat.WRITE_ACCESS: 'WRITE_ACCESS',
+        menuAlarmStat.NO_ALARM: "NO_ALARM",
+        menuAlarmStat.READ: "READ",
+        menuAlarmStat.WRITE: "WRITE",
+        menuAlarmStat.HIHI: "HIHI",
+        menuAlarmStat.HIGH: "HIGH",
+        menuAlarmStat.LOLO: "LOLO",
+        menuAlarmStat.LOW: "LOW",
+        menuAlarmStat.STATE: "STATE",
+        menuAlarmStat.COS: "COS",
+        menuAlarmStat.COMM: "COMM",
+        menuAlarmStat.TIMEOUT: "TIMEOUT",
+        menuAlarmStat.HWLIMIT: "HWLIMIT",
+        menuAlarmStat.CALC: "CALC",
+        menuAlarmStat.SCAN: "SCAN",
+        menuAlarmStat.LINK: "LINK",
+        menuAlarmStat.SOFT: "SOFT",
+        menuAlarmStat.BAD_SUB: "BAD_SUB",
+        menuAlarmStat.UDF: "UDF",
+        menuAlarmStat.DISABLE: "DISABLE",
+        menuAlarmStat.SIMM: "SIMM",
+        menuAlarmStat.READ_ACCESS: "READ_ACCESS",
+        menuAlarmStat.WRITE_ACCESS: "WRITE_ACCESS",
     }
 )
 
@@ -295,21 +273,21 @@ class menuConvert(Menu):
 
 menuConvert._set_strings(
     {
-        menuConvert.NO_CONVERSION: 'NO CONVERSION',
-        menuConvert.SLOPE: 'SLOPE',
-        menuConvert.LINEAR: 'LINEAR',
-        menuConvert.typeKdegF: 'typeKdegF',
-        menuConvert.typeKdegC: 'typeKdegC',
-        menuConvert.typeJdegF: 'typeJdegF',
-        menuConvert.typeJdegC: 'typeJdegC',
-        menuConvert.typeEdegF: 'typeEdegF(ixe only)',
-        menuConvert.typeEdegC: 'typeEdegC(ixe only)',
-        menuConvert.typeTdegF: 'typeTdegF',
-        menuConvert.typeTdegC: 'typeTdegC',
-        menuConvert.typeRdegF: 'typeRdegF',
-        menuConvert.typeRdegC: 'typeRdegC',
-        menuConvert.typeSdegF: 'typeSdegF',
-        menuConvert.typeSdegC: 'typeSdegC',
+        menuConvert.NO_CONVERSION: "NO CONVERSION",
+        menuConvert.SLOPE: "SLOPE",
+        menuConvert.LINEAR: "LINEAR",
+        menuConvert.typeKdegF: "typeKdegF",
+        menuConvert.typeKdegC: "typeKdegC",
+        menuConvert.typeJdegF: "typeJdegF",
+        menuConvert.typeJdegC: "typeJdegC",
+        menuConvert.typeEdegF: "typeEdegF(ixe only)",
+        menuConvert.typeEdegC: "typeEdegC(ixe only)",
+        menuConvert.typeTdegF: "typeTdegF",
+        menuConvert.typeTdegC: "typeTdegC",
+        menuConvert.typeRdegF: "typeRdegF",
+        menuConvert.typeRdegC: "typeRdegC",
+        menuConvert.typeSdegF: "typeSdegF",
+        menuConvert.typeSdegC: "typeSdegC",
     }
 )
 
@@ -329,16 +307,16 @@ class menuFtype(Menu):
 
 menuFtype._set_strings(
     {
-        menuFtype.STRING: 'STRING',
-        menuFtype.CHAR: 'CHAR',
-        menuFtype.UCHAR: 'UCHAR',
-        menuFtype.SHORT: 'SHORT',
-        menuFtype.USHORT: 'USHORT',
-        menuFtype.LONG: 'LONG',
-        menuFtype.ULONG: 'ULONG',
-        menuFtype.FLOAT: 'FLOAT',
-        menuFtype.DOUBLE: 'DOUBLE',
-        menuFtype.ENUM: 'ENUM',
+        menuFtype.STRING: "STRING",
+        menuFtype.CHAR: "CHAR",
+        menuFtype.UCHAR: "UCHAR",
+        menuFtype.SHORT: "SHORT",
+        menuFtype.USHORT: "USHORT",
+        menuFtype.LONG: "LONG",
+        menuFtype.ULONG: "ULONG",
+        menuFtype.FLOAT: "FLOAT",
+        menuFtype.DOUBLE: "DOUBLE",
+        menuFtype.ENUM: "ENUM",
     }
 )
 
@@ -351,9 +329,9 @@ class menuIvoa(Menu):
 
 menuIvoa._set_strings(
     {
-        menuIvoa.Continue_normally: 'Continue normally',
+        menuIvoa.Continue_normally: "Continue normally",
         menuIvoa.Don_t_drive_outputs: "Don't drive outputs",
-        menuIvoa.Set_output_to_IVOV: 'Set output to IVOV',
+        menuIvoa.Set_output_to_IVOV: "Set output to IVOV",
     }
 )
 
@@ -364,10 +342,7 @@ class menuOmsl(Menu):
 
 
 menuOmsl._set_strings(
-    {
-        menuOmsl.supervisory: 'supervisory',
-        menuOmsl.closed_loop: 'closed_loop',
-    }
+    {menuOmsl.supervisory: "supervisory", menuOmsl.closed_loop: "closed_loop"}
 )
 
 
@@ -382,12 +357,12 @@ class menuPini(Menu):
 
 menuPini._set_strings(
     {
-        menuPini.NO: 'NO',
-        menuPini.YES: 'YES',
-        menuPini.RUN: 'RUN',
-        menuPini.RUNNING: 'RUNNING',
-        menuPini.PAUSE: 'PAUSE',
-        menuPini.PAUSED: 'PAUSED',
+        menuPini.NO: "NO",
+        menuPini.YES: "YES",
+        menuPini.RUN: "RUN",
+        menuPini.RUNNING: "RUNNING",
+        menuPini.PAUSE: "PAUSE",
+        menuPini.PAUSED: "PAUSED",
     }
 )
 
@@ -398,10 +373,7 @@ class menuPost(Menu):
 
 
 menuPost._set_strings(
-    {
-        menuPost.OnChange: 'On Change',
-        menuPost.Always: 'Always',
-    }
+    {menuPost.OnChange: "On Change", menuPost.Always: "Always"}
 )
 
 
@@ -413,9 +385,9 @@ class menuPriority(Menu):
 
 menuPriority._set_strings(
     {
-        menuPriority.LOW: 'LOW',
-        menuPriority.MEDIUM: 'MEDIUM',
-        menuPriority.HIGH: 'HIGH',
+        menuPriority.LOW: "LOW",
+        menuPriority.MEDIUM: "MEDIUM",
+        menuPriority.HIGH: "HIGH",
     }
 )
 
@@ -435,16 +407,16 @@ class menuScan(Menu):
 
 menuScan._set_strings(
     {
-        menuScan.menuScanPassive: 'Passive',
-        menuScan.menuScanEvent: 'Event',
-        menuScan.menuScanI_O_Intr: 'I/O Intr',
-        menuScan.menuScan10_second: '10 second',
-        menuScan.menuScan5_second: '5 second',
-        menuScan.menuScan2_second: '2 second',
-        menuScan.menuScan1_second: '1 second',
-        menuScan.menuScan_5_second: '.5 second',
-        menuScan.menuScan_2_second: '.2 second',
-        menuScan.menuScan_1_second: '.1 second',
+        menuScan.menuScanPassive: "Passive",
+        menuScan.menuScanEvent: "Event",
+        menuScan.menuScanI_O_Intr: "I/O Intr",
+        menuScan.menuScan10_second: "10 second",
+        menuScan.menuScan5_second: "5 second",
+        menuScan.menuScan2_second: "2 second",
+        menuScan.menuScan1_second: "1 second",
+        menuScan.menuScan_5_second: ".5 second",
+        menuScan.menuScan_2_second: ".2 second",
+        menuScan.menuScan_1_second: ".1 second",
     }
 )
 
@@ -456,11 +428,7 @@ class menuSimm(Menu):
 
 
 menuSimm._set_strings(
-    {
-        menuSimm.NO: 'NO',
-        menuSimm.YES: 'YES',
-        menuSimm.RAW: 'RAW',
-    }
+    {menuSimm.NO: "NO", menuSimm.YES: "YES", menuSimm.RAW: "RAW"}
 )
 
 
@@ -469,12 +437,7 @@ class menuYesNo(Menu):
     YES = 1  # 'YES'
 
 
-menuYesNo._set_strings(
-    {
-        menuYesNo.NO: 'NO',
-        menuYesNo.YES: 'YES',
-    }
-)
+menuYesNo._set_strings({menuYesNo.NO: "NO", menuYesNo.YES: "YES"})
 
 
 class selSELM(Menu):
@@ -486,10 +449,10 @@ class selSELM(Menu):
 
 selSELM._set_strings(
     {
-        selSELM.Specified: 'Specified',
-        selSELM.High_Signal: 'High Signal',
-        selSELM.Low_Signal: 'Low Signal',
-        selSELM.Median_Signal: 'Median Signal',
+        selSELM.Specified: "Specified",
+        selSELM.High_Signal: "High Signal",
+        selSELM.Low_Signal: "Low Signal",
+        selSELM.Median_Signal: "Median Signal",
     }
 )
 
@@ -501,11 +464,7 @@ class seqSELM(Menu):
 
 
 seqSELM._set_strings(
-    {
-        seqSELM.All: 'All',
-        seqSELM.Specified: 'Specified',
-        seqSELM.Mask: 'Mask',
-    }
+    {seqSELM.All: "All", seqSELM.Specified: "Specified", seqSELM.Mask: "Mask"}
 )
 
 
@@ -515,10 +474,7 @@ class stringinPOST(Menu):
 
 
 stringinPOST._set_strings(
-    {
-        stringinPOST.OnChange: 'On Change',
-        stringinPOST.Always: 'Always',
-    }
+    {stringinPOST.OnChange: "On Change", stringinPOST.Always: "Always"}
 )
 
 
@@ -528,10 +484,7 @@ class stringoutPOST(Menu):
 
 
 stringoutPOST._set_strings(
-    {
-        stringoutPOST.OnChange: 'On Change',
-        stringoutPOST.Always: 'Always',
-    }
+    {stringoutPOST.OnChange: "On Change", stringoutPOST.Always: "Always"}
 )
 
 
@@ -541,15 +494,13 @@ class waveformPOST(Menu):
 
 
 waveformPOST._set_strings(
-    {
-        waveformPOST.Always: 'Always',
-        waveformPOST.OnChange: 'On Change',
-    }
+    {waveformPOST.Always: "Always", waveformPOST.OnChange: "On Change"}
 )
 
 
-menus = {name: menu for name, menu in globals().items()
-         if menu is not Menu and
-         inspect.isclass(menu) and
-         issubclass(menu, Menu)}
-__all__ = ['menus'] + list(menus.keys())
+menus = {
+    name: menu
+    for name, menu in globals().items()
+    if menu is not Menu and inspect.isclass(menu) and issubclass(menu, Menu)
+}
+__all__ = ["menus"] + list(menus.keys())

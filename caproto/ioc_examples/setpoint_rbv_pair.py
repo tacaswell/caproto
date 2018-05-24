@@ -3,20 +3,21 @@ import sys
 import curio
 
 from caproto.curio.server import start_server
-from caproto.server import (PVGroup, get_pv_pair_wrapper)
+from caproto.server import PVGroup, get_pv_pair_wrapper
 
 
 # Create _two_ PVs with a single pvproperty_with_rbv:
-pvproperty_with_rbv = get_pv_pair_wrapper(setpoint_suffix='',
-                                          readback_suffix='_RBV')
+pvproperty_with_rbv = get_pv_pair_wrapper(
+    setpoint_suffix="", readback_suffix="_RBV"
+)
 # NOTE: _RBV is areaDetector-like naming suffix for a read-back value
 
 
 class Group(PVGroup):
     # Creates {prefix}pair and {prefix}pair_RBV
-    pair = pvproperty_with_rbv(dtype=int, doc='This is the first pair')
+    pair = pvproperty_with_rbv(dtype=int, doc="This is the first pair")
     # Creates {prefix}pair2 and {prefix}pair2_RBV
-    pair2 = pvproperty_with_rbv(dtype=float, doc='This is pair2')
+    pair2 = pvproperty_with_rbv(dtype=float, doc="This is pair2")
 
     # TODO: @danielballan to rename the above appropriately
 
@@ -38,14 +39,15 @@ class Group(PVGroup):
         return obj.readback.value
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     try:
         prefix = sys.argv[1]
     except IndexError:
-        prefix = 'setpoint_rbv:'
+        prefix = "setpoint_rbv:"
 
     ioc = Group(prefix)
     from pprint import pprint
+
     pprint(ioc.pvdb)
 
     curio.run(start_server, ioc.pvdb)

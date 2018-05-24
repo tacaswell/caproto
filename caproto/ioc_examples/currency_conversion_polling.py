@@ -11,23 +11,22 @@ from caproto.server import pvproperty, PVGroup
 
 
 async def convert_currency(amount, from_currency, to_currency):
-    'Perform the currency conversion'
-    params = urllib.parse.urlencode({'a': amount,
-                                     'from': from_currency,
-                                     'to': to_currency,
-                                     })
-    resp = await asks.get('https://finance.google.com/finance/'
-                          'converter?' + params)
-    m = re.search(r'<span class=bld>([^ ]*)',
-                  resp.content.decode('latin-1'))
+    "Perform the currency conversion"
+    params = urllib.parse.urlencode(
+        {"a": amount, "from": from_currency, "to": to_currency}
+    )
+    resp = await asks.get(
+        "https://finance.google.com/finance/" "converter?" + params
+    )
+    m = re.search(r"<span class=bld>([^ ]*)", resp.content.decode("latin-1"))
     converted = float(m.groups()[0])
-    print(f'Converted {amount} {from_currency} to {to_currency} = {converted}')
+    print(f"Converted {amount} {from_currency} to {to_currency} = {converted}")
     return converted
 
 
 class CurrencyPollingIOC(PVGroup):
-    from_currency = pvproperty(value=['BTC'])
-    to_currency = pvproperty(value=['USD'])
+    from_currency = pvproperty(value=["BTC"])
+    to_currency = pvproperty(value=["USD"])
     amount = pvproperty(value=[1])
 
     update_rate = pvproperty(value=[3.0])
@@ -35,8 +34,8 @@ class CurrencyPollingIOC(PVGroup):
 
     @converted.startup
     async def converted(self, instance, async_lib):
-        'Periodically update the value'
-        print('Starting currency conversion')
+        "Periodically update the value"
+        print("Starting currency conversion")
         while True:
             # perform the conversion
             converted_amount = await convert_currency(
@@ -52,7 +51,7 @@ class CurrencyPollingIOC(PVGroup):
             await async_lib.library.sleep(self.update_rate.value[0])
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # usage: currency_conversion_polling.py [PREFIX]
     import curio
     import asks  # for http requests through curio
@@ -60,9 +59,9 @@ if __name__ == '__main__':
     try:
         prefix = sys.argv[1]
     except IndexError:
-        prefix = 'currency_polling:'
+        prefix = "currency_polling:"
 
     set_logging_level(logging.DEBUG)
-    asks.init('curio')
+    asks.init("curio")
     ioc = CurrencyPollingIOC(prefix=prefix, macros={})
     curio.run(start_server, ioc.pvdb)

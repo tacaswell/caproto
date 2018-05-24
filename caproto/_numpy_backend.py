@@ -1,6 +1,6 @@
 import ctypes
 from ._backend import Backend, register_backend
-from ._dbr import (ChannelType, DbrStringArray, native_types, DBR_TYPES)
+from ._dbr import ChannelType, DbrStringArray, native_types, DBR_TYPES
 
 try:
     import numpy as np
@@ -9,30 +9,28 @@ except ImportError:
 
 
 type_map = {
-    ChannelType.INT: '>i2',
-    ChannelType.FLOAT: '>f4',
-    ChannelType.ENUM: '>u2',
-    ChannelType.CHAR: '>u8',
-    ChannelType.LONG: '>i4',
-    ChannelType.DOUBLE: '>f8',
-    ChannelType.STRING: 'S40',
-    ChannelType.CHAR: 'b',
-    ChannelType.STSACK_STRING: 'u8',
-    ChannelType.CLASS_NAME: 'u8',
-    ChannelType.PUT_ACKT: '>u2',
-    ChannelType.PUT_ACKS: '>u2',
+    ChannelType.INT: ">i2",
+    ChannelType.FLOAT: ">f4",
+    ChannelType.ENUM: ">u2",
+    ChannelType.CHAR: ">u8",
+    ChannelType.LONG: ">i4",
+    ChannelType.DOUBLE: ">f8",
+    ChannelType.STRING: "S40",
+    ChannelType.CHAR: "b",
+    ChannelType.STSACK_STRING: "u8",
+    ChannelType.CLASS_NAME: "u8",
+    ChannelType.PUT_ACKT: ">u2",
+    ChannelType.PUT_ACKS: ">u2",
 }
 
 
 if np is not None:
     # Make the dtypes ahead of time
-    type_map = {ch_type: np.dtype(dtype)
-                for ch_type, dtype in type_map.items()
-                }
+    type_map = {ch_type: np.dtype(dtype) for ch_type, dtype in type_map.items()}
 
 
 def epics_to_python(value, native_type, data_count, *, auto_byteswap=True):
-    '''Convert from a native EPICS DBR type to a builtin Python type
+    """Convert from a native EPICS DBR type to a builtin Python type
 
     Notes:
      - A waveform of characters is just a bytestring.
@@ -40,7 +38,7 @@ def epics_to_python(value, native_type, data_count, *, auto_byteswap=True):
        character) strings.
      - Enums are just integers that happen to have special significance.
      - Everything else is, straightforwardly, an array of numbers.
-    '''
+    """
 
     if native_type == ChannelType.STRING:
         return DbrStringArray.frombuffer(value, data_count)
@@ -51,7 +49,7 @@ def epics_to_python(value, native_type, data_count, *, auto_byteswap=True):
 
 
 def python_to_epics(dtype, values, *, byteswap=True, convert_from=None):
-    'Convert python builtin values to epics CA'
+    "Convert python builtin values to epics CA"
     # NOTE: ignoring byteswap, storing everything as big-endian
     if dtype == ChannelType.STRING:
         return DbrStringArray(values).tobytes()
@@ -65,12 +63,13 @@ def _setup():
         _size = ctypes.sizeof(DBR_TYPES[_type])
         assert type_map[_type].itemsize == _size
 
-    return Backend(name='numpy',
-                   array_types=(np.ndarray, ),
-                   type_map=type_map,
-                   epics_to_python=epics_to_python,
-                   python_to_epics=python_to_epics,
-                   )
+    return Backend(
+        name="numpy",
+        array_types=(np.ndarray,),
+        type_map=type_map,
+        epics_to_python=epics_to_python,
+        python_to_epics=python_to_epics,
+    )
 
 
 if np is not None:

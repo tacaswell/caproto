@@ -25,79 +25,111 @@ import _ctypes
 import inspect
 import struct
 import socket
-from ._headers import (MessageHeader, ExtendedMessageHeader,
-                       AccessRightsResponseHeader, ClearChannelRequestHeader,
-                       ClearChannelResponseHeader, ClientNameRequestHeader,
-                       CreateChFailResponseHeader, CreateChanRequestHeader,
-                       CreateChanResponseHeader, EchoRequestHeader,
-                       EchoResponseHeader, ErrorResponseHeader,
-                       EventAddRequestHeader, EventAddResponseHeader,
-                       EventCancelRequestHeader, EventCancelResponseHeader,
-                       EventsOffRequestHeader, EventsOnRequestHeader,
-                       HostNameRequestHeader, NotFoundResponseHeader,
-                       ReadNotifyRequestHeader, ReadNotifyResponseHeader,
-                       ReadRequestHeader, ReadResponseHeader,
-                       ReadSyncRequestHeader,
-                       RepeaterConfirmResponseHeader,
-                       RepeaterRegisterRequestHeader, RsrvIsUpResponseHeader,
-                       SearchRequestHeader, SearchResponseHeader,
-                       ServerDisconnResponseHeader, VersionRequestHeader,
-                       VersionResponseHeader, WriteNotifyRequestHeader,
-                       WriteNotifyResponseHeader, WriteRequestHeader,
-                       )
+from ._headers import (
+    MessageHeader,
+    ExtendedMessageHeader,
+    AccessRightsResponseHeader,
+    ClearChannelRequestHeader,
+    ClearChannelResponseHeader,
+    ClientNameRequestHeader,
+    CreateChFailResponseHeader,
+    CreateChanRequestHeader,
+    CreateChanResponseHeader,
+    EchoRequestHeader,
+    EchoResponseHeader,
+    ErrorResponseHeader,
+    EventAddRequestHeader,
+    EventAddResponseHeader,
+    EventCancelRequestHeader,
+    EventCancelResponseHeader,
+    EventsOffRequestHeader,
+    EventsOnRequestHeader,
+    HostNameRequestHeader,
+    NotFoundResponseHeader,
+    ReadNotifyRequestHeader,
+    ReadNotifyResponseHeader,
+    ReadRequestHeader,
+    ReadResponseHeader,
+    ReadSyncRequestHeader,
+    RepeaterConfirmResponseHeader,
+    RepeaterRegisterRequestHeader,
+    RsrvIsUpResponseHeader,
+    SearchRequestHeader,
+    SearchResponseHeader,
+    ServerDisconnResponseHeader,
+    VersionRequestHeader,
+    VersionResponseHeader,
+    WriteNotifyRequestHeader,
+    WriteNotifyResponseHeader,
+    WriteRequestHeader,
+)
 
-from ._constants import (DO_REPLY, NO_REPLY, MAX_RECORD_LENGTH)
-from ._dbr import (DBR_INT, DBR_TYPES, ChannelType, float_t, short_t, ushort_t,
-                   native_type, special_types, MAX_STRING_SIZE, AccessRights)
+from ._constants import DO_REPLY, NO_REPLY, MAX_RECORD_LENGTH
+from ._dbr import (
+    DBR_INT,
+    DBR_TYPES,
+    ChannelType,
+    float_t,
+    short_t,
+    ushort_t,
+    native_type,
+    special_types,
+    MAX_STRING_SIZE,
+    AccessRights,
+)
 
 from . import _dbr as dbr
 from ._backend import backend_ns as backend
 from ._status import eca_value_to_status
-from ._utils import (CLIENT, NEED_DATA, REQUEST, RESPONSE, SERVER,
-                     CaprotoTypeError, CaprotoValueError,
-                     CaprotoNotImplementedError,
-                     ensure_bytes)
+from ._utils import (
+    CLIENT,
+    NEED_DATA,
+    REQUEST,
+    RESPONSE,
+    SERVER,
+    CaprotoTypeError,
+    CaprotoValueError,
+    CaprotoNotImplementedError,
+    ensure_bytes,
+)
 
 
 _MessageHeaderSize = ctypes.sizeof(MessageHeader)
 _ExtendedMessageHeaderSize = ctypes.sizeof(ExtendedMessageHeader)
 
-_pad_buffer = {mod_sz: b'\0' * (8 - mod_sz)
-               for mod_sz in range(1, 8)}
-_pad_buffer[0] = b''
+_pad_buffer = {mod_sz: b"\0" * (8 - mod_sz) for mod_sz in range(1, 8)}
+_pad_buffer[0] = b""
 
 
 def ipv4_to_int32(ip: str) -> int:
-    '''Pack an IPv4 into a 32-bit integer (in network byte order)'''
+    """Pack an IPv4 into a 32-bit integer (in network byte order)"""
     encoded_ip = socket.inet_pton(socket.AF_INET, ip)
-    return struct.unpack('!I', encoded_ip)[0]
+    return struct.unpack("!I", encoded_ip)[0]
 
 
 def ipv4_from_int32(int_packed_ip: int) -> str:
-    '''Unpack an IPv4 from a 32-bit integer (in network byte order)'''
-    encoded_ip = struct.pack('!I', int_packed_ip)
+    """Unpack an IPv4 from a 32-bit integer (in network byte order)"""
+    encoded_ip = struct.pack("!I", int_packed_ip)
     return socket.inet_ntop(socket.AF_INET, encoded_ip)
 
 
 def has_metadata(data_type):
-    'Does data_type have associated metadata?'
-    return (data_type in special_types or
-            data_type != native_type(data_type))
+    "Does data_type have associated metadata?"
+    return data_type in special_types or data_type != native_type(data_type)
 
 
 def from_buffer(data_type, data_count, buffer):
     "Wraps dbr_type.from_buffer and special-case strings."
-    payload_size = data_count * ctypes.sizeof(
-        DBR_TYPES[native_type(data_type)])
+    payload_size = data_count * ctypes.sizeof(DBR_TYPES[native_type(data_type)])
     if has_metadata(data_type):
         md_payload = DBR_TYPES[data_type].from_buffer(buffer)
         md_size = ctypes.sizeof(DBR_TYPES[data_type])
     else:
-        md_payload = b''
+        md_payload = b""
         md_size = 0
     # Use payload_size to strip off any right-padding that may have been added
     # to make the byte-size of the payload a multiple of 8.
-    data_payload = memoryview(buffer)[md_size:md_size + payload_size]
+    data_payload = memoryview(buffer)[md_size : md_size + payload_size]
     return md_payload, data_payload
 
 
@@ -107,7 +139,7 @@ def padded_len(s):
 
 
 def pad_buffers(*buffers):
-    '''Get a bytestring for padding a concatenated set of buffers
+    """Get a bytestring for padding a concatenated set of buffers
 
     Parameters
     ----------
@@ -116,7 +148,7 @@ def pad_buffers(*buffers):
     Returns
     -------
     full_padded_length, pad_buffer
-    '''
+    """
     unpadded_size = sum(bytelen(buf) for buf in buffers)
     pad_buffer = _pad_buffer[unpadded_size % 8]
     return unpadded_size + len(pad_buffer), pad_buffer
@@ -125,7 +157,7 @@ def pad_buffers(*buffers):
 def padded_string_payload(payload):
     byte_payload = ensure_bytes(payload)
     padded_size = padded_len(byte_payload)
-    return padded_size, byte_payload.ljust(padded_size, b'\x00')
+    return padded_size, byte_payload.ljust(padded_size, b"\x00")
 
 
 def bytelen(item):
@@ -144,7 +176,7 @@ def bytelen(item):
         return item.itemsize * len(item)
     elif isinstance(item, (ctypes.Structure, _ctypes._SimpleCData)):
         return ctypes.sizeof(item)
-    elif hasattr(item, 'nbytes'):
+    elif hasattr(item, "nbytes"):
         # Duck-type as numpy array / memoryview.
         return item.nbytes
     elif isinstance(item, (bytes, bytearray)):
@@ -153,9 +185,11 @@ def bytelen(item):
         # We could just fall back on len() but I worry that someone will
         # unwittingly use this on a type that has a __len__ that is not its
         # bytelength and is not already caught above. Better to fail like this.
-        raise CaprotoNotImplementedError("Not sure how to measure byte length "
-                                         "of object of type {}"
-                                         "".format(type(item)))
+        raise CaprotoNotImplementedError(
+            "Not sure how to measure byte length "
+            "of object of type {}"
+            "".format(type(item))
+        )
 
 
 def parse_metadata(metadata, data_type):
@@ -177,27 +211,30 @@ def parse_metadata(metadata, data_type):
     -------
     md_payload : a DBR struct or bytes
     """
-    if hasattr(metadata, 'DBR_ID'):
+    if hasattr(metadata, "DBR_ID"):
         # This is already a DBR.
         md_payload = metadata
     elif isinstance(metadata, bytes):
         md_payload = metadata
     elif metadata is None:
-        md_payload = b''
+        md_payload = b""
     elif isinstance(metadata, collections.Iterable):
         # This is a tuple of values to be encoded into a DBR.
         justified_md = []
         for val in metadata:
             if isinstance(val, str):
                 if len(val) > MAX_STRING_SIZE:  # 39?
-                    raise CaprotoValueError("The protocol limits strings to "
-                                            "40 characters.")
-                val = val.ljust(MAX_STRING_SIZE, b'\x00')
+                    raise CaprotoValueError(
+                        "The protocol limits strings to " "40 characters."
+                    )
+                val = val.ljust(MAX_STRING_SIZE, b"\x00")
             justified_md.append(val)
         md_payload = DBR_TYPES[data_type](*justified_md)
     else:
-        raise CaprotoTypeError("metadata given as type we cannot handle - {}"
-                               "".format(type(metadata)))
+        raise CaprotoTypeError(
+            "metadata given as type we cannot handle - {}"
+            "".format(type(metadata))
+        )
     return md_payload
 
 
@@ -225,15 +262,18 @@ def data_payload(data, metadata, data_type, data_count):
     if isinstance(data, bytes):
         # Assume bytes are big-endian; we have no way of checking.
         data_payload = data
-    elif (isinstance(data, backend.array_types) or
-          isinstance(data, collections.Iterable)):
+    elif isinstance(data, backend.array_types) or isinstance(
+        data, collections.Iterable
+    ):
         data_payload = backend.python_to_epics(
-            native_type(data_type), data, byteswap=True)
+            native_type(data_type), data, byteswap=True
+        )
     elif data is None:
-        data_payload = b''
+        data_payload = b""
     else:
-        raise CaprotoTypeError("data given as type we cannot handle - {}"
-                               "".format(type(data)))
+        raise CaprotoTypeError(
+            "data given as type we cannot handle - {}" "".format(type(data))
+        )
 
     md_payload = parse_metadata(metadata, data_type)
     size, pad_payload = pad_buffers(md_payload, data_payload)
@@ -245,8 +285,9 @@ def data_payload(data, metadata, data_type, data_count):
 
 def extract_data(buffer, data_type, data_count):
     "Return a scalar or big-endian array (numpy.ndarray or array.array)."
-    data = backend.epics_to_python(buffer, native_type(data_type), data_count,
-                                   auto_byteswap=True)
+    data = backend.epics_to_python(
+        buffer, native_type(data_type), data_count, auto_byteswap=True
+    )
     if data_count < len(data):
         return data[:data_count]  # (no copy)
     return data
@@ -278,18 +319,19 @@ def read_datagram(data, address, role):
         _class = get_command_class(role, header)
         payload_size = header.payload_size
         if _class.HAS_PAYLOAD:
-            payload_bytes = barray[:header.payload_size]
+            payload_bytes = barray[: header.payload_size]
             barray = barray[payload_size:]
         else:
             payload_bytes = None
-        command = _class.from_wire(header, payload_bytes,
-                                   sender_address=address)
+        command = _class.from_wire(
+            header, payload_bytes, sender_address=address
+        )
         commands.append(command)
     return commands
 
 
 def bytes_needed_for_command(data, role):
-    '''
+    """
     Parameters
     ----------
     data
@@ -298,7 +340,7 @@ def bytes_needed_for_command(data, role):
     Returns
     -------
     (header, num_bytes_needed)
-    '''
+    """
 
     header_size = _MessageHeaderSize
     data_len = len(data)
@@ -324,7 +366,7 @@ def bytes_needed_for_command(data, role):
 
 
 def read_from_bytestream(data, role):
-    '''
+    """
     Parameters
     ----------
     data
@@ -335,7 +377,7 @@ def read_from_bytestream(data, role):
     (remaining_data, command, num_bytes_needed)
         if more data is required, NEED_DATA will be returned in place of
         `command`
-    '''
+    """
 
     header, num_bytes_needed = bytes_needed_for_command(data, role)
 
@@ -363,20 +405,20 @@ _commands = set()
 class _MetaDirectionalMessage(type):
     # see what you've done, @tacaswell and @danielballan?
     def __new__(metacls, name, bases, dct):
-        if name.endswith('Request'):
+        if name.endswith("Request"):
             direction = REQUEST
             command_dict = Commands[CLIENT]
         else:
             direction = RESPONSE
             command_dict = Commands[SERVER]
 
-        dct['DIRECTION'] = direction
+        dct["DIRECTION"] = direction
         new_class = super().__new__(metacls, name, bases, dct)
 
         if new_class.ID is not None:
             command_dict[new_class.ID] = new_class
 
-        if name in ('RsrvIsUpResponse, '):
+        if name in ("RsrvIsUpResponse, "):
             Commands[CLIENT][new_class.ID] = new_class
             Commands[SERVER][new_class.ID] = new_class
 
@@ -385,7 +427,7 @@ class _MetaDirectionalMessage(type):
 
 
 class Message(metaclass=_MetaDirectionalMessage):
-    __slots__ = ('header', 'buffers', 'sender_address')
+    __slots__ = ("header", "buffers", "sender_address")
     ID = None  # integer, to be overriden by subclass
 
     def __init__(self, header, *buffers, validate=True, sender_address=None):
@@ -401,15 +443,18 @@ class Message(metaclass=_MetaDirectionalMessage):
         if self.buffers is () and self.header.payload_size != 0:
             raise CaprotoValueError(
                 "{}.header.payload_size {} > 0 but payload is None."
-                "".format(type(self).__name__, self.header.payload_size))
+                "".format(type(self).__name__, self.header.payload_size)
+            )
         elif self.header.payload_size != size:
             raise CaprotoValueError(
                 "{}.header.payload_size {} != payload size of {}"
-                "".format(type(self).__name__, self.header.payload_size, size))
+                "".format(type(self).__name__, self.header.payload_size, size)
+            )
         if self.header.command != self.ID:
             raise CaprotoTypeError(
                 "A {} must have a header with header.command == {}, not {}."
-                "".format(type(self).__name__, self.ID, self.header.command))
+                "".format(type(self).__name__, self.ID, self.header.command)
+            )
 
     @classmethod
     def from_wire(cls, header, payload_bytes, *, sender_address=None):
@@ -421,8 +466,9 @@ class Message(metaclass=_MetaDirectionalMessage):
         """
         if not cls.HAS_PAYLOAD:
             return cls.from_components(header)
-        payload = from_buffer(header.data_type, header.data_count,
-                              payload_bytes)
+        payload = from_buffer(
+            header.data_type, header.data_count, payload_bytes
+        )
         return cls.from_components(header, *payload)
 
     @classmethod
@@ -448,24 +494,25 @@ class Message(metaclass=_MetaDirectionalMessage):
         for buf in self.buffers:
             raw_bytes += bytes(buf)
         # Trim 40-char string struct to payload_size.
-        trimmed_bytes = raw_bytes[:self.header.payload_size]
+        trimmed_bytes = raw_bytes[: self.header.payload_size]
         # Pad to multiple of 8.
-        payload_bytes = trimmed_bytes.ljust(padded_len(trimmed_bytes), b'\x00')
+        payload_bytes = trimmed_bytes.ljust(padded_len(trimmed_bytes), b"\x00")
         return bytes(self.header) + bytes(payload_bytes)
 
     def __repr__(self):
         signature = inspect.signature(type(self))
-        parameters = (signature.parameters if type(self) is not Message
-                      else ['header'])
+        parameters = (
+            signature.parameters if type(self) is not Message else ["header"]
+        )
 
         d = [(arg, repr(getattr(self, arg))) for arg in parameters]
-        formatted_args = ", ".join(["{!s}={}".format(k, v)
-                                    for k, v in d])
+        formatted_args = ", ".join(["{!s}={}".format(k, v) for k, v in d])
         return "{}({})".format(type(self).__name__, formatted_args)
 
     def __len__(self):
-        return (ctypes.sizeof(self.header) +
-                sum(bytelen(buf) for buf in self.buffers))
+        return ctypes.sizeof(self.header) + sum(
+            bytelen(buf) for buf in self.buffers
+        )
 
     @property
     def nbytes(self):
@@ -555,21 +602,23 @@ class SearchRequest(Message):
 
     def __init__(self, name, cid, version):
         size, payload = padded_string_payload(name)
-        rec, _, field = name.partition('.')
+        rec, _, field = name.partition(".")
         _len = len(rec)
         if _len > MAX_RECORD_LENGTH:
-            raise CaprotoValueError('EPICS 3.14 imposes a {}-character limit '
-                                    'on record names. The record {!r} is {} '
-                                    'characters.'
-                                    ''.format(MAX_RECORD_LENGTH, name, _len))
+            raise CaprotoValueError(
+                "EPICS 3.14 imposes a {}-character limit "
+                "on record names. The record {!r} is {} "
+                "characters."
+                "".format(MAX_RECORD_LENGTH, name, _len)
+            )
         header = SearchRequestHeader(size, NO_REPLY, version, cid)
-        super().__init__(header, b'', payload)
+        super().__init__(header, b"", payload)
 
     payload_size = property(lambda self: self.header.payload_size)
     reply = property(lambda self: self.header.data_type)
     version = property(lambda self: self.header.data_count)
     cid = property(lambda self: self.header.parameter1)
-    name = property(lambda self: bytes(self.buffers[1]).rstrip(b'\x00'))
+    name = property(lambda self: bytes(self.buffers[1]).rstrip(b"\x00"))
 
 
 class SearchResponse(Message):
@@ -601,21 +650,22 @@ class SearchResponse(Message):
 
     def __init__(self, port, ip, cid, version):
         if ip is None:
-            ip = '255.255.255.255'
+            ip = "255.255.255.255"
 
-        header = SearchResponseHeader(data_type=port,
-                                      sid=ipv4_to_int32(ip),
-                                      cid=cid)
+        header = SearchResponseHeader(
+            data_type=port, sid=ipv4_to_int32(ip), cid=cid
+        )
         # Pad a uint16 to fill 8 bytes.
-        payload = bytes(DBR_INT(version)).ljust(8, b'\x00')
+        payload = bytes(DBR_INT(version)).ljust(8, b"\x00")
         super().__init__(header, payload)
 
     @classmethod
     def from_wire(cls, header, *buffers, sender_address=None):
         # Special-case to handle the fact that data_type field is not the data
         # type. (It's used to hold the server port, unrelated to the payload.)
-        return cls.from_components(header, *buffers,
-                                   sender_address=sender_address)
+        return cls.from_components(
+            header, *buffers, sender_address=sender_address
+        )
 
     @property
     def ip(self):
@@ -719,8 +769,9 @@ class RsrvIsUpResponse(Message):
     def __init__(self, version, server_port, beacon_id, address):
         # TODO if address is 0, it should be replaced with the remote ip from
         # the udp packet
-        header = RsrvIsUpResponseHeader(version, server_port, beacon_id,
-                                        ipv4_to_int32(str(address)))
+        header = RsrvIsUpResponseHeader(
+            version, server_port, beacon_id, ipv4_to_int32(str(address))
+        )
         super().__init__(header)
 
     version = property(lambda self: self.header.data_type)
@@ -730,7 +781,7 @@ class RsrvIsUpResponse(Message):
 
     @property
     def address_string(self):
-        addr_bytes = struct.pack('!I', self.address)
+        addr_bytes = struct.pack("!I", self.address)
         return socket.inet_ntop(socket.AF_INET, addr_bytes)
 
 
@@ -750,7 +801,8 @@ class RepeaterConfirmResponse(Message):
 
     def __init__(self, repeater_address):
         header = RepeaterConfirmResponseHeader(
-            ipv4_to_int32(str(repeater_address)))
+            ipv4_to_int32(str(repeater_address))
+        )
         super().__init__(header)
 
     @property
@@ -772,9 +824,10 @@ class RepeaterRegisterRequest(Message):
     ID = 24
     HAS_PAYLOAD = False
 
-    def __init__(self, client_address='0.0.0.0'):
+    def __init__(self, client_address="0.0.0.0"):
         header = RepeaterRegisterRequestHeader(
-            ipv4_to_int32(str(client_address)))
+            ipv4_to_int32(str(client_address))
+        )
         super().__init__(header)
 
     @property
@@ -783,7 +836,7 @@ class RepeaterRegisterRequest(Message):
 
 
 class EventAddRequestPayload(ctypes.BigEndianStructure):
-    '''
+    """
     Attributes
     ----------
     low : float
@@ -796,13 +849,14 @@ class EventAddRequestPayload(ctypes.BigEndianStructure):
         Event selection mask
 
 
-    '''
-    _fields_ = [('low', float_t),
-                ('high', float_t),
-                ('to', float_t),
-                ('mask', ushort_t),
-                ('__padding', short_t),
-                ]
+    """
+    _fields_ = [
+        ("low", float_t),
+        ("high", float_t),
+        ("to", float_t),
+        ("mask", ushort_t),
+        ("__padding", short_t),
+    ]
 
     def __init__(self, low=0.0, high=0.0, to=0.0, mask=0):
         self.low = low
@@ -862,18 +916,21 @@ class EventAddRequest(Message):
     ID = 1
     HAS_PAYLOAD = True
 
-    def __init__(self, data_type, data_count, sid, subscriptionid, low,
-                 high, to, mask):
-        header = EventAddRequestHeader(data_type, data_count, sid,
-                                       subscriptionid)
+    def __init__(
+        self, data_type, data_count, sid, subscriptionid, low, high, to, mask
+    ):
+        header = EventAddRequestHeader(
+            data_type, data_count, sid, subscriptionid
+        )
         payload = EventAddRequestPayload(low=low, high=high, to=to, mask=mask)
         super().__init__(header, payload)
 
     @classmethod
     def from_wire(cls, header, *buffers, sender_address=None):
         payload_struct = EventAddRequestPayload.from_buffer(buffers[0])
-        return cls.from_components(header, payload_struct,
-                                   sender_address=sender_address)
+        return cls.from_components(
+            header, payload_struct, sender_address=sender_address
+        )
 
     @property
     def payload_struct(self):
@@ -924,11 +981,20 @@ class EventAddResponse(Message):
     ID = 1
     HAS_PAYLOAD = True
 
-    def __init__(self, data, data_type, data_count,
-                 status_code, subscriptionid, *, metadata=None):
+    def __init__(
+        self,
+        data,
+        data_type,
+        data_count,
+        status_code,
+        subscriptionid,
+        *,
+        metadata=None
+    ):
         size, *buffers = data_payload(data, metadata, data_type, data_count)
-        header = EventAddResponseHeader(size, data_type, data_count,
-                                        status_code, subscriptionid)
+        header = EventAddResponseHeader(
+            size, data_type, data_count, status_code, subscriptionid
+        )
         super().__init__(header, *buffers)
 
     payload_size = property(lambda self: self.header.payload_size)
@@ -953,12 +1019,13 @@ class EventAddResponse(Message):
         # libca responds to EventCancelRequest with an
         # EventAddResponse with an empty payload.
         if not payload_bytes:
-            return cls.from_components(header,
-                                       sender_address=sender_address)
-        payload = from_buffer(header.data_type, header.data_count,
-                              payload_bytes)
-        return cls.from_components(header, *payload,
-                                   sender_address=sender_address)
+            return cls.from_components(header, sender_address=sender_address)
+        payload = from_buffer(
+            header.data_type, header.data_count, payload_bytes
+        )
+        return cls.from_components(
+            header, *payload, sender_address=sender_address
+        )
 
 
 class EventCancelRequest(Message):
@@ -1029,13 +1096,16 @@ class EventCancelResponse(Message):
     def validate(self):
         # special case because of weird ID
         if self.header.command != 1:
-            raise CaprotoTypeError("A {} must have a header with "
-                                   "header.command == 1, not {}."
-                                   "".format(type(self), self.header.command))
+            raise CaprotoTypeError(
+                "A {} must have a header with "
+                "header.command == 1, not {}."
+                "".format(type(self), self.header.command)
+            )
 
         if any(len(buf) for buf in self.buffers):
-            raise CaprotoTypeError("A {} must have no payload."
-                                   "".format(type(self)))
+            raise CaprotoTypeError(
+                "A {} must have no payload." "".format(type(self))
+            )
         # do not call super()
 
 
@@ -1061,8 +1131,9 @@ class ReadResponse(Message):
     ID = 3
     HAS_PAYLOAD = True
 
-    def __init__(self, data, data_type, data_count, sid, ioid, *,
-                 metadata=None):
+    def __init__(
+        self, data, data_type, data_count, sid, ioid, *, metadata=None
+    ):
         size, *buffers = data_payload(data, metadata, data_type, data_count)
         header = ReadResponseHeader(size, data_type, data_count, sid, ioid)
         super().__init__(header, *buffers)
@@ -1088,8 +1159,9 @@ class WriteRequest(Message):
     ID = 4
     HAS_PAYLOAD = True
 
-    def __init__(self, data, data_type, data_count, sid, ioid, *,
-                 metadata=None):
+    def __init__(
+        self, data, data_type, data_count, sid, ioid, *, metadata=None
+    ):
         size, *buffers = data_payload(data, metadata, data_type, data_count)
         header = WriteRequestHeader(size, data_type, data_count, sid, ioid)
         super().__init__(header, *buffers)
@@ -1107,6 +1179,7 @@ class WriteRequest(Message):
     @property
     def metadata(self):
         return extract_metadata(self.buffers[0], self.data_type)
+
 
 # There is no 'WriteResponse'. See WriteNotifyRequest/WriteNotifyResponse.
 
@@ -1176,7 +1249,7 @@ class ErrorResponse(Message):
         payload = req_bytes + msg_payload
 
         header = ErrorResponseHeader(size, cid, status_code)
-        super().__init__(header, b'', payload)
+        super().__init__(header, b"", payload)
 
     payload_size = property(lambda self: self.header.payload_size)
     cid = property(lambda self: self.header.parameter1)
@@ -1197,8 +1270,9 @@ class ErrorResponse(Message):
 
     @classmethod
     def from_wire(cls, header, payload_bytes, *, sender_address=None):
-        return cls.from_components(header, b'', payload_bytes,
-                                   sender_address=sender_address)
+        return cls.from_components(
+            header, b"", payload_bytes, sender_address=sender_address
+        )
 
 
 class ClearChannelRequest(Message):
@@ -1323,11 +1397,13 @@ class ReadNotifyResponse(Message):
     ID = 15
     HAS_PAYLOAD = True
 
-    def __init__(self, data, data_type, data_count, status, ioid, *,
-                 metadata=None):
+    def __init__(
+        self, data, data_type, data_count, status, ioid, *, metadata=None
+    ):
         size, *buffers = data_payload(data, metadata, data_type, data_count)
-        header = ReadNotifyResponseHeader(size, data_type, data_count, status,
-                                          ioid)
+        header = ReadNotifyResponseHeader(
+            size, data_type, data_count, status, ioid
+        )
         super().__init__(header, *buffers)
 
     payload_size = property(lambda self: self.header.payload_size)
@@ -1376,7 +1452,7 @@ class CreateChanRequest(Message):
     def __init__(self, name, cid, version):
         size, payload = padded_string_payload(name)
         header = CreateChanRequestHeader(size, cid, version)
-        super().__init__(header, b'', payload)
+        super().__init__(header, b"", payload)
 
     @classmethod
     def from_wire(cls, header, payload_bytes, *, sender_address=None):
@@ -1387,13 +1463,14 @@ class CreateChanRequest(Message):
         field, and these override this method in their subclass.
         """
 
-        return cls.from_components(header, b'', payload_bytes,
-                                   sender_address=sender_address)
+        return cls.from_components(
+            header, b"", payload_bytes, sender_address=sender_address
+        )
 
     payload_size = property(lambda self: self.header.payload_size)
     cid = property(lambda self: self.header.parameter1)
     version = property(lambda self: self.header.parameter2)
-    name = property(lambda self: bytes(self.buffers[1]).rstrip(b'\x00'))
+    name = property(lambda self: bytes(self.buffers[1]).rstrip(b"\x00"))
 
 
 class CreateChanResponse(Message):
@@ -1470,11 +1547,13 @@ class WriteNotifyRequest(Message):
     ID = 19
     HAS_PAYLOAD = True
 
-    def __init__(self, data, data_type, data_count, sid, ioid, *,
-                 metadata=None):
+    def __init__(
+        self, data, data_type, data_count, sid, ioid, *, metadata=None
+    ):
         size, *buffers = data_payload(data, metadata, data_type, data_count)
-        header = WriteNotifyRequestHeader(size, data_type, data_count, sid,
-                                          ioid)
+        header = WriteNotifyRequestHeader(
+            size, data_type, data_count, sid, ioid
+        )
         super().__init__(header, *buffers)
 
     payload_size = property(lambda self: self.header.payload_size)
@@ -1553,7 +1632,7 @@ class ClientNameRequest(Message):
     def __init__(self, name):
         size, payload = padded_string_payload(name)
         header = ClientNameRequestHeader(size)
-        super().__init__(header, b'', payload)
+        super().__init__(header, b"", payload)
 
     @classmethod
     def from_wire(cls, header, payload_bytes, *, sender_address=None):
@@ -1563,11 +1642,12 @@ class ClientNameRequest(Message):
         Some Command types allocate a different meaning to the header.dbr_type
         field, and these override this method in their subclass.
         """
-        return cls.from_components(header, b'', payload_bytes,
-                                   sender_address=sender_address)
+        return cls.from_components(
+            header, b"", payload_bytes, sender_address=sender_address
+        )
 
     payload_size = property(lambda self: self.header.payload_size)
-    name = property(lambda self: bytes(self.buffers[1]).rstrip(b'\x00'))
+    name = property(lambda self: bytes(self.buffers[1]).rstrip(b"\x00"))
 
 
 class HostNameRequest(Message):
@@ -1587,15 +1667,16 @@ class HostNameRequest(Message):
     def __init__(self, name):
         size, payload = padded_string_payload(name)
         header = HostNameRequestHeader(size)
-        super().__init__(header, b'', payload)
+        super().__init__(header, b"", payload)
 
     payload_size = property(lambda self: self.header.payload_size)
-    name = property(lambda self: bytes(self.buffers[1]).rstrip(b'\x00'))
+    name = property(lambda self: bytes(self.buffers[1]).rstrip(b"\x00"))
 
     @classmethod
     def from_wire(cls, header, payload_bytes, *, sender_address=None):
-        return cls.from_components(header, b'', payload_bytes,
-                                   sender_address=sender_address)
+        return cls.from_components(
+            header, b"", payload_bytes, sender_address=sender_address
+        )
 
 
 class AccessRightsResponse(Message):

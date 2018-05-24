@@ -8,7 +8,7 @@ class SimpleIOC(PVGroup):
     B = pvproperty(value=[2])
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # usage: simple.py [PREFIX]
     import sys
     import curio
@@ -18,15 +18,15 @@ if __name__ == '__main__':
     try:
         prefix = sys.argv[1]
     except IndexError:
-        prefix = 'simple:'
+        prefix = "simple:"
 
     # Instantiate the IOC, assigning a prefix for the PV names.
     ioc = SimpleIOC(prefix=prefix)
-    print('PVs:', list(ioc.pvdb))
+    print("PVs:", list(ioc.pvdb))
 
     # Print out some information when clients access
     logging.basicConfig()
-    ioc.log.setLevel('DEBUG')
+    ioc.log.setLevel("DEBUG")
 
     # Run IOC using curio.
     curio.run(start_server(ioc.pvdb))

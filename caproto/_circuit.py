@@ -10,22 +10,43 @@ import itertools
 import logging
 import collections
 
-from ._commands import (AccessRightsResponse, CreateChFailResponse,
-                        ClearChannelRequest, ClearChannelResponse,
-                        ClientNameRequest, CreateChanRequest,
-                        CreateChanResponse, EventAddRequest, EventAddResponse,
-                        EventCancelRequest, EventCancelResponse,
-                        HostNameRequest, ReadNotifyRequest, ReadNotifyResponse,
-                        SearchResponse, ServerDisconnResponse,
-                        VersionRequest, VersionResponse, WriteNotifyRequest,
-                        WriteNotifyResponse, WriteRequest,
-                        read_from_bytestream,)
-from ._state import (ChannelState, CircuitState, get_exception)
-from ._utils import (CLIENT, SERVER, NEED_DATA, DISCONNECTED, CaprotoKeyError,
-                     CaprotoValueError, CaprotoRuntimeError, CaprotoError,
-                     )
-from ._dbr import (SubscriptionType, )
-from ._constants import (DEFAULT_PROTOCOL_VERSION, MAX_ID)
+from ._commands import (
+    AccessRightsResponse,
+    CreateChFailResponse,
+    ClearChannelRequest,
+    ClearChannelResponse,
+    ClientNameRequest,
+    CreateChanRequest,
+    CreateChanResponse,
+    EventAddRequest,
+    EventAddResponse,
+    EventCancelRequest,
+    EventCancelResponse,
+    HostNameRequest,
+    ReadNotifyRequest,
+    ReadNotifyResponse,
+    SearchResponse,
+    ServerDisconnResponse,
+    VersionRequest,
+    VersionResponse,
+    WriteNotifyRequest,
+    WriteNotifyResponse,
+    WriteRequest,
+    read_from_bytestream,
+)
+from ._state import ChannelState, CircuitState, get_exception
+from ._utils import (
+    CLIENT,
+    SERVER,
+    NEED_DATA,
+    DISCONNECTED,
+    CaprotoKeyError,
+    CaprotoValueError,
+    CaprotoRuntimeError,
+    CaprotoError,
+)
+from ._dbr import SubscriptionType
+from ._constants import DEFAULT_PROTOCOL_VERSION, MAX_ID
 
 
 class VirtualCircuit:
@@ -45,14 +66,15 @@ class VirtualCircuit:
         May be used by the server to prioritize requests when under high
         load. Lowest priority is 0; highest is 99.
     """
+
     def __init__(self, our_role, address, priority):
         self.our_role = our_role
         if our_role is CLIENT:
             self.their_role = SERVER
-            abbrev = 'cli'  # just for logger
+            abbrev = "cli"  # just for logger
         else:
             self.their_role = CLIENT
-            abbrev = 'srv'
+            abbrev = "srv"
         self.address = address
         self.priority = priority
         self.channels = {}  # map cid to Channel
@@ -68,31 +90,37 @@ class VirtualCircuit:
         self._ioid_counter = itertools.count(0)
         self._sub_counter = itertools.count(0)
         if priority is None and self.our_role is CLIENT:
-            raise CaprotoRuntimeError("Client-side VirtualCircuit requires a "
-                                      "non-None priority at initialization "
-                                      "time.")
+            raise CaprotoRuntimeError(
+                "Client-side VirtualCircuit requires a "
+                "non-None priority at initialization "
+                "time."
+            )
 
     @property
     def host(self):
-        '''Peer host name'''
+        """Peer host name"""
         return self.address[0]
 
     @property
     def port(self):
-        '''Port number'''
+        """Port number"""
         return self.address[1]
 
     def __repr__(self):
-        return (f"<VirtualCircuit host={self.host} port={self.port} "
-                f"our_role={self.our_role}> logger_name={self.log.name}>")
+        return (
+            f"<VirtualCircuit host={self.host} port={self.port} "
+            f"our_role={self.our_role}> logger_name={self.log.name}>"
+        )
 
     @property
     def key(self):
         if self.priority is None:
-            raise CaprotoRuntimeError("This VirtualCircuit has not received a "
-                                      "VersionRequest and does not know its "
-                                      "priority. Therefore, it does not yet "
-                                      "have a key.")
+            raise CaprotoRuntimeError(
+                "This VirtualCircuit has not received a "
+                "VersionRequest and does not know its "
+                "priority. Therefore, it does not yet "
+                "have a key."
+            )
         return self.address, self.priority  # a unique identifier
 
     def __eq__(self, other):
@@ -145,25 +173,27 @@ class VirtualCircuit:
         total_received = sum(len(byteslike) for byteslike in buffers)
         commands = collections.deque()
         if total_received == 0:
-            self.log.debug('Zero-length recv; sending disconnect notification')
+            self.log.debug("Zero-length recv; sending disconnect notification")
             commands.append(DISCONNECTED)
             return commands, 0
 
         self.log.debug("Received %d bytes.", total_received)
-        self._data += b''.join(buffers)
+        self._data += b"".join(buffers)
 
         while True:
-            (self._data,
-             command,
-             num_bytes_needed) = read_from_bytestream(self._data,
-                                                      self.their_role)
+            (self._data, command, num_bytes_needed) = read_from_bytestream(
+                self._data, self.their_role
+            )
             len_data = len(self._data)  # just for logging
             if type(command) is not NEED_DATA:
                 self.log.debug("%d bytes -> %r", len(command), command)
                 commands.append(command)
             else:
-                self.log.debug("%d bytes are cached. Need more bytes to parse "
-                               "next command.", len_data)
+                self.log.debug(
+                    "%d bytes are cached. Need more bytes to parse "
+                    "next command.",
+                    len_data,
+                )
                 break
         return commands, num_bytes_needed
 
@@ -191,20 +221,39 @@ class VirtualCircuit:
 
         # Filter for Commands that are pertinent to a specific Channel, as
         # opposed to the Circuit as a whole:
-        if isinstance(command, (ClearChannelRequest, ClearChannelResponse,
-                                CreateChanRequest, CreateChanResponse,
-                                CreateChFailResponse, AccessRightsResponse,
-                                ReadNotifyRequest, ReadNotifyResponse,
-                                WriteNotifyRequest, WriteNotifyResponse,
-                                WriteRequest,
-                                EventAddRequest, EventAddResponse,
-                                EventCancelRequest, EventCancelResponse,
-                                ServerDisconnResponse,)):
+        if isinstance(
+            command,
+            (
+                ClearChannelRequest,
+                ClearChannelResponse,
+                CreateChanRequest,
+                CreateChanResponse,
+                CreateChFailResponse,
+                AccessRightsResponse,
+                ReadNotifyRequest,
+                ReadNotifyResponse,
+                WriteNotifyRequest,
+                WriteNotifyResponse,
+                WriteRequest,
+                EventAddRequest,
+                EventAddResponse,
+                EventCancelRequest,
+                EventCancelResponse,
+                ServerDisconnResponse,
+            ),
+        ):
             # Identify which Channel this Command is referring to. We have to
             # do this in one of a couple different ways depenending on the
             # Command.
-            if isinstance(command, (ReadNotifyRequest, WriteNotifyRequest,
-                                    WriteRequest, EventAddRequest)):
+            if isinstance(
+                command,
+                (
+                    ReadNotifyRequest,
+                    WriteNotifyRequest,
+                    WriteRequest,
+                    EventAddRequest,
+                ),
+            ):
                 # Identify the Channel based on its sid.
                 sid = command.sid
                 try:
@@ -212,31 +261,35 @@ class VirtualCircuit:
                 except KeyError:
                     err = get_exception(self.our_role, command)
                     raise err("Unknown Channel sid {!r}".format(command.sid))
-            elif isinstance(command, (ReadNotifyResponse,
-                                      WriteNotifyResponse)):
+            elif isinstance(command, (ReadNotifyResponse, WriteNotifyResponse)):
                 # Identify the Channel based on its ioid.
                 try:
                     chan = self._ioids[command.ioid]
                 except KeyError:
                     err = get_exception(self.our_role, command)
                     raise err("Unknown Channel ioid {!r}".format(command.ioid))
-            elif isinstance(command, (EventAddResponse, EventCancelRequest,
-                                      EventCancelResponse)):
+            elif isinstance(
+                command,
+                (EventAddResponse, EventCancelRequest, EventCancelResponse),
+            ):
                 # Identify the Channel based on its subscriptionid
                 try:
                     event_add = self.event_add_commands[command.subscriptionid]
                 except KeyError:
                     err = get_exception(self.our_role, command)
-                    raise err("Unrecognized subscriptionid {!r}"
-                              "".format(command.subscriptionid))
+                    raise err(
+                        "Unrecognized subscriptionid {!r}"
+                        "".format(command.subscriptionid)
+                    )
                 chan = self.channels_sid[event_add.sid]
             elif isinstance(command, CreateChanRequest):
                 # A Channel instance for this cid may already exist.
                 try:
                     chan = self.channels[command.cid]
                 except KeyError:
-                    _class = {CLIENT: ClientChannel,
-                              SERVER: ServerChannel}[self.our_role]
+                    _class = {CLIENT: ClientChannel, SERVER: ServerChannel}[
+                        self.our_role
+                    ]
                     chan = _class(command.name, self, command.cid)
             else:
                 # In all other cases, the Command gives us a cid.
@@ -245,37 +298,47 @@ class VirtualCircuit:
 
             # Do some additional validation on commands related to an existing
             # subscription.
-            if isinstance(command, (EventAddResponse, EventCancelRequest,
-                                    EventCancelResponse)):
+            if isinstance(
+                command,
+                (EventAddResponse, EventCancelRequest, EventCancelResponse),
+            ):
                 # Verify data_type matches the one in the original request.
                 event_add = self.event_add_commands[command.subscriptionid]
                 if event_add.data_type != command.data_type:
                     err = get_exception(self.our_role, command)
-                    raise err("The data_type in {!r} does not match the "
-                              "data_type in the original EventAddRequest "
-                              "for this subscriptionid, {!r}."
-                              "".format(command, event_add.data_type))
+                    raise err(
+                        "The data_type in {!r} does not match the "
+                        "data_type in the original EventAddRequest "
+                        "for this subscriptionid, {!r}."
+                        "".format(command, event_add.data_type)
+                    )
             if isinstance(command, (EventAddResponse,)):
                 # Verify data_count matches the one in the original request.
                 # NOTE The docs say that EventCancelRequest should echo the
                 # original data_count too, but in fact it seems to be 0.
                 event_add = self.event_add_commands[command.subscriptionid]
-                if (event_add.data_count > 0 and
-                        event_add.data_count != command.data_count):
+                if (
+                    event_add.data_count > 0
+                    and event_add.data_count != command.data_count
+                ):
                     err = get_exception(self.our_role, command)
-                    raise err("The data_count in {!r} does not match the "
-                              "data_count in the original EventAddRequest "
-                              "for this subscriptionid, {!r}."
-                              "".format(command, event_add.data_count))
+                    raise err(
+                        "The data_count in {!r} does not match the "
+                        "data_count in the original EventAddRequest "
+                        "for this subscriptionid, {!r}."
+                        "".format(command, event_add.data_count)
+                    )
             if isinstance(command, (EventCancelRequest, EventCancelResponse)):
                 # Verify sid matches the one in the original request.
                 event_add = self.event_add_commands[command.subscriptionid]
                 if event_add.sid != command.sid:
                     err = get_exception(self.our_role, command)
-                    raise err("The sid in {!r} does not match the sid in "
-                              "in the original EventAddRequest for this "
-                              "subscriptionid, {!r}."
-                              "".format(command, event_add.sid))
+                    raise err(
+                        "The sid in {!r} does not match the sid in "
+                        "in the original EventAddRequest for this "
+                        "subscriptionid, {!r}."
+                        "".format(command, event_add.sid)
+                    )
 
             # Update the state machine of the pertinent Channel.
             # If this is not a valid command, the state machine will raise
@@ -319,9 +382,12 @@ class VirtualCircuit:
                 self.priority = command.priority
             elif self.priority != command.priority:
                 err = get_exception(self.our_role, command)
-                raise err("priority {} does not match previously set priority "
-                          "of {} for this circuit".format(command.priority,
-                                                          self.priority))
+                raise err(
+                    "priority {} does not match previously set priority "
+                    "of {} for this circuit".format(
+                        command.priority, self.priority
+                    )
+                )
 
     def disconnect(self):
         """
@@ -378,8 +444,9 @@ class _BaseChannel:
     # Base class for ClientChannel and ServerChannel, which add convenience
     # methods for composing requests and repsponses, respectively. All of the
     # important code is here in the base class.
-    def __init__(self, name, circuit, cid=None,
-                 protocol_version=DEFAULT_PROTOCOL_VERSION):
+    def __init__(
+        self, name, circuit, cid=None, protocol_version=DEFAULT_PROTOCOL_VERSION
+    ):
         self.protocol_version = protocol_version
         self.name = name
         self.circuit = circuit
@@ -399,8 +466,11 @@ class _BaseChannel:
         """
         Get cached EventAdd commands for this channel's active subscriptions.
         """
-        return {k: v for k, v in self.circuit.event_add_commands.items()
-                if v.sid == self.sid}
+        return {
+            k: v
+            for k, v in self.circuit.event_add_commands.items()
+            if v.sid == self.sid
+        }
 
     def _fill_defaults(self, data_type, data_count):
         # Boilerplate used in many convenience methods:
@@ -412,7 +482,7 @@ class _BaseChannel:
         return data_type, data_count
 
     def state_changed(self, role, old_state, new_state, command):
-        '''State changed callback for subclass usage'''
+        """State changed callback for subclass usage"""
         pass
 
     def process_command(self, command):
@@ -460,6 +530,7 @@ class ClientChannel(_BaseChannel):
     protocol_version : integer, optional
         Default is ``DEFAULT_PROTOCOL_VERSION``.
     """
+
     def version(self):
         """
         Generate a valid :class:`VersionRequest`.
@@ -474,8 +545,9 @@ class ClientChannel(_BaseChannel):
         -------
         VersionRequest
         """
-        command = VersionRequest(version=self.protocol_version,
-                                 priority=self.circuit.priority)
+        command = VersionRequest(
+            version=self.protocol_version, priority=self.circuit.priority
+        )
         return command
 
     def host_name(self, host_name):
@@ -517,8 +589,7 @@ class ClientChannel(_BaseChannel):
         -------
         CreateChanRequest
         """
-        command = CreateChanRequest(self.name, self.cid,
-                                    self.protocol_version)
+        command = CreateChanRequest(self.name, self.cid, self.protocol_version)
         return command
 
     def disconnect(self):
@@ -557,8 +628,15 @@ class ClientChannel(_BaseChannel):
         command = ReadNotifyRequest(data_type, data_count, self.sid, ioid)
         return command
 
-    def write(self, data, data_type=None, data_count=None, metadata=None, ioid=None,
-              use_notify=True):
+    def write(
+        self,
+        data,
+        data_type=None,
+        data_count=None,
+        metadata=None,
+        ioid=None,
+        use_notify=True,
+    ):
         """
         Generate a valid :class:`WriteNotifyRequest`.
 
@@ -588,16 +666,25 @@ class ClientChannel(_BaseChannel):
 
         # TODO: change use_notify default value; may break tests
         if use_notify:
-            command = WriteNotifyRequest(data, data_type, data_count, self.sid,
-                                         ioid, metadata=metadata)
+            command = WriteNotifyRequest(
+                data, data_type, data_count, self.sid, ioid, metadata=metadata
+            )
         else:
-            command = WriteRequest(data, data_type, data_count, self.sid, ioid,
-                                   metadata=metadata)
+            command = WriteRequest(
+                data, data_type, data_count, self.sid, ioid, metadata=metadata
+            )
         return command
 
-    def subscribe(self, data_type=None, data_count=None,
-                  subscriptionid=None,
-                  low=0.0, high=0.0, to=0.0, mask=None):
+    def subscribe(
+        self,
+        data_type=None,
+        data_count=None,
+        subscriptionid=None,
+        low=0.0,
+        high=0.0,
+        to=0.0,
+        mask=None,
+    ):
         """
         Generate a valid :class:`EventAddRequest`.
 
@@ -630,13 +717,16 @@ class ClientChannel(_BaseChannel):
         """
         data_type, data_count = self._fill_defaults(data_type, data_count)
         if mask is None:
-            mask = (SubscriptionType.DBE_VALUE |
-                    SubscriptionType.DBE_ALARM |
-                    SubscriptionType.DBE_PROPERTY)
+            mask = (
+                SubscriptionType.DBE_VALUE
+                | SubscriptionType.DBE_ALARM
+                | SubscriptionType.DBE_PROPERTY
+            )
         if subscriptionid is None:
             subscriptionid = self.circuit.new_subscriptionid()
-        command = EventAddRequest(data_type, data_count, self.sid,
-                                  subscriptionid, low, high, to, mask)
+        command = EventAddRequest(
+            data_type, data_count, self.sid, subscriptionid, low, high, to, mask
+        )
         return command
 
     def unsubscribe(self, subscriptionid):
@@ -656,13 +746,16 @@ class ClientChannel(_BaseChannel):
         try:
             event_add = self.circuit.event_add_commands[subscriptionid]
         except KeyError:
-            raise CaprotoKeyError("No current subscription has id {!r}"
-                                  "".format(subscriptionid))
+            raise CaprotoKeyError(
+                "No current subscription has id {!r}" "".format(subscriptionid)
+            )
         if event_add.sid != self.sid:
-            raise CaprotoValueError("This subscription is for a different "
-                                    "Channel.")
-        command = EventCancelRequest(event_add.data_type, self.sid,
-                                     subscriptionid)
+            raise CaprotoValueError(
+                "This subscription is for a different " "Channel."
+            )
+        command = EventCancelRequest(
+            event_add.data_type, self.sid, subscriptionid
+        )
         return command
 
 
@@ -679,6 +772,7 @@ class ServerChannel(_BaseChannel):
     protocol_version : integer, optional
         Default is ``DEFAULT_PROTOCOL_VERSION``.
     """
+
     def version(self):
         """
         Generate a valid :class:`VersionResponse`.
@@ -707,8 +801,9 @@ class ServerChannel(_BaseChannel):
         -------
         CreateChanResponse
         """
-        command = CreateChanResponse(native_data_type, native_data_count,
-                                     self.cid, sid)
+        command = CreateChanResponse(
+            native_data_type, native_data_count, self.cid, sid
+        )
         return command
 
     def create_fail(self):
@@ -722,8 +817,16 @@ class ServerChannel(_BaseChannel):
         command = CreateChFailResponse(self.cid)
         return command
 
-    def read(self, data, ioid, data_type=None, data_count=None, status=1, *,
-             metadata=None):
+    def read(
+        self,
+        data,
+        ioid,
+        data_type=None,
+        data_count=None,
+        status=1,
+        *,
+        metadata=None,
+    ):
         """
         Generate a valid :class:`ReadNotifyResponse`.
 
@@ -749,8 +852,9 @@ class ServerChannel(_BaseChannel):
         ReadNotifyResponse
         """
         data_type, data_count = self._fill_defaults(data_type, data_count)
-        command = ReadNotifyResponse(data, data_type, data_count, status,
-                                     ioid, metadata=metadata)
+        command = ReadNotifyResponse(
+            data, data_type, data_count, status, ioid, metadata=metadata
+        )
         return command
 
     def write(self, ioid, data_type=None, data_count=None, status=1):
@@ -779,8 +883,15 @@ class ServerChannel(_BaseChannel):
         command = WriteNotifyResponse(data_type, data_count, status, ioid)
         return command
 
-    def subscribe(self, data, subscriptionid, data_type=None,
-                  data_count=None, status_code=32, metadata=None):
+    def subscribe(
+        self,
+        data,
+        subscriptionid,
+        data_type=None,
+        data_count=None,
+        status_code=32,
+        metadata=None,
+    ):
         """
         Generate a valid :class:`EventAddResponse`.
 
@@ -807,8 +918,14 @@ class ServerChannel(_BaseChannel):
         """
         # TODO It's unclear what the status_code means here.
         data_type, data_count = self._fill_defaults(data_type, data_count)
-        command = EventAddResponse(data, data_type, data_count, status_code,
-                                   subscriptionid, metadata=metadata)
+        command = EventAddResponse(
+            data,
+            data_type,
+            data_count,
+            status_code,
+            subscriptionid,
+            metadata=metadata,
+        )
         return command
 
     def unsubscribe(self, subscriptionid, data_type=None):
@@ -848,8 +965,10 @@ def extract_address(search_response):
     Extract the (host, port) from a SearchResponse.
     """
     if type(search_response) is not SearchResponse:
-        raise TypeError("expected SearchResponse, not {!r}"
-                        "".format(type(search_response).__name__))
+        raise TypeError(
+            "expected SearchResponse, not {!r}"
+            "".format(type(search_response).__name__)
+        )
     if search_response.header.parameter1 == 0xffffffff:
         # The CA spec tells us that this sentinel value means we
         # should fall back to using the address of the sender of

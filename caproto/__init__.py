@@ -14,5 +14,6 @@ from ._array_backend import Array
 from . import _numpy_backend
 
 from ._version import get_versions
-__version__ = get_versions()['version']
+
+__version__ = get_versions()["version"]
 del get_versions

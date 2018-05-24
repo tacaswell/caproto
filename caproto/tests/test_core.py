@@ -2,7 +2,7 @@ import pytest
 import caproto as ca
 
 
-def make_channels(cli_circuit, srv_circuit, data_type, data_count, name='a'):
+def make_channels(cli_circuit, srv_circuit, data_type, data_count, name="a"):
     cid = cli_circuit.new_channel_id()
     sid = srv_circuit.new_channel_id()
 
@@ -25,7 +25,7 @@ def test_counter_wraparound(circuit_pair):
     circuit, _ = circuit_pair
     broadcaster = ca.Broadcaster(ca.CLIENT)
 
-    MAX = 2**16
+    MAX = 2 ** 16
     for i in range(MAX + 2):
         assert i % MAX == circuit.new_channel_id()
         assert i % MAX == circuit.new_subscriptionid()
@@ -37,29 +37,29 @@ def test_counter_skipping(circuit_pair):
     circuit, _ = circuit_pair
     broadcaster = ca.Broadcaster(ca.CLIENT)
 
-    broadcaster.unanswered_searches[0] = 'placeholder'
-    broadcaster.unanswered_searches[2] = 'placeholder'
+    broadcaster.unanswered_searches[0] = "placeholder"
+    broadcaster.unanswered_searches[2] = "placeholder"
     assert broadcaster.new_search_id() == 1
     assert list(broadcaster.unanswered_searches) == [0, 2]
     assert broadcaster.new_search_id() == 3
 
-    circuit.channels[2] = 'placeholder'
+    circuit.channels[2] = "placeholder"
     assert circuit.new_channel_id() == 0
     assert circuit.new_channel_id() == 1
     # should skip 2
     assert circuit.new_channel_id() == 3
 
-    circuit._ioids[0] = 'placeholder'
+    circuit._ioids[0] = "placeholder"
     # should skip 0
     circuit.new_ioid() == 1
 
-    circuit.event_add_commands[0] = 'placeholder'
+    circuit.event_add_commands[0] = "placeholder"
     # should skip 0
     circuit.new_subscriptionid() == 1
 
 
 def test_circuit_properties():
-    host = '127.0.0.1'
+    host = "127.0.0.1"
     port = 5555
     prio = 1
 
@@ -100,15 +100,17 @@ def test_unknown_id_errors(circuit_pair):
         circuit.send(com)
 
     # Receive a reading with an unknown ioid.
-    com = ca.ReadNotifyResponse(data=(1,), data_type=5, data_count=1, ioid=1,
-                                status=1)
+    com = ca.ReadNotifyResponse(
+        data=(1,), data_type=5, data_count=1, ioid=1, status=1
+    )
     (command,), _ = circuit.recv(bytes(com))
     with pytest.raises(ca.RemoteProtocolError):
         circuit.process_command(command)
 
     # Receive an event with an unknown subscriptionid.
-    com = ca.EventAddResponse(data=(1,), data_type=5, data_count=1,
-                              status_code=1, subscriptionid=1)
+    com = ca.EventAddResponse(
+        data=(1,), data_type=5, data_count=1, status_code=1, subscriptionid=1
+    )
     (command,), _ = circuit.recv(bytes(com))
     with pytest.raises(ca.RemoteProtocolError):
         circuit.process_command(command)
@@ -119,26 +121,37 @@ def test_mismatched_event_add_responses(circuit_pair):
     circuit, _ = circuit_pair
 
     # Send an EventAddRequest and test legal and illegal responses.
-    req = ca.EventAddRequest(data_type=5, data_count=1, sid=0,
-                             subscriptionid=1, low=0, high=0, to=0, mask=0)
+    req = ca.EventAddRequest(
+        data_type=5,
+        data_count=1,
+        sid=0,
+        subscriptionid=1,
+        low=0,
+        high=0,
+        to=0,
+        mask=0,
+    )
     circuit.send(req)
 
     # Good response
-    res = ca.EventAddResponse(data=(1,), data_type=5, data_count=1,
-                              status_code=1, subscriptionid=1)
+    res = ca.EventAddResponse(
+        data=(1,), data_type=5, data_count=1, status_code=1, subscriptionid=1
+    )
     (command,), _ = circuit.recv(bytes(res))
     circuit.process_command(command)
 
     # Bad response -- wrong data_type
-    res = ca.EventAddResponse(data=(1,), data_type=6, data_count=1,
-                              status_code=1, subscriptionid=1)
+    res = ca.EventAddResponse(
+        data=(1,), data_type=6, data_count=1, status_code=1, subscriptionid=1
+    )
     (command,), _ = circuit.recv(bytes(res))
     with pytest.raises(ca.RemoteProtocolError):
         circuit.process_command(command)
 
     # Bad response -- wrong data_count
-    res = ca.EventAddResponse(data=(1, 2), data_type=5, data_count=2,
-                              status_code=1, subscriptionid=1)
+    res = ca.EventAddResponse(
+        data=(1, 2), data_type=5, data_count=2, status_code=1, subscriptionid=1
+    )
     (command,), _ = circuit.recv(bytes(res))
     with pytest.raises(ca.RemoteProtocolError):
         circuit.process_command(command)
@@ -151,7 +164,7 @@ def test_mismatched_event_add_responses(circuit_pair):
 
 def test_empty_datagram():
     broadcaster = ca.Broadcaster(ca.CLIENT)
-    commands = broadcaster.recv(b'', ('127.0.0.1', 6666))
+    commands = broadcaster.recv(b"", ("127.0.0.1", 6666))
     assert commands == []
     # TODO this is an API change from NEED_DATA, but I don't think it's
     # necessarily wrong as these empty broadcast messages are a lack of
@@ -159,12 +172,12 @@ def test_empty_datagram():
 
 
 def test_extract_address():
-    old_style = ca.SearchResponse(port=6666, ip='1.2.3.4', cid=0, version=13)
+    old_style = ca.SearchResponse(port=6666, ip="1.2.3.4", cid=0, version=13)
     old_style.header.parameter1 = 0xffffffff
-    old_style.sender_address = ('5.6.7.8', 6666)
-    new_style = ca.SearchResponse(port=6666, ip='1.2.3.4', cid=0, version=13)
-    ca.extract_address(old_style) == '1.2.3.4'
-    ca.extract_address(new_style) == '5.6.7.8'
+    old_style.sender_address = ("5.6.7.8", 6666)
+    new_style = ca.SearchResponse(port=6666, ip="1.2.3.4", cid=0, version=13)
+    ca.extract_address(old_style) == "1.2.3.4"
+    ca.extract_address(new_style) == "5.6.7.8"
 
 
 def test_register_convenience_method():
@@ -175,21 +188,21 @@ def test_register_convenience_method():
 def test_broadcaster_checks():
     b = ca.Broadcaster(ca.CLIENT)
     with pytest.raises(ca.LocalProtocolError):
-        b.send(ca.SearchRequest(name='LIRR', cid=0, version=13))
+        b.send(ca.SearchRequest(name="LIRR", cid=0, version=13))
 
-    b.send(ca.RepeaterRegisterRequest('1.2.3.4'))
-    res = ca.RepeaterConfirmResponse('5.6.7.8')
-    commands = b.recv(bytes(res), ('5.6.7.8', 6666))
+    b.send(ca.RepeaterRegisterRequest("1.2.3.4"))
+    res = ca.RepeaterConfirmResponse("5.6.7.8")
+    commands = b.recv(bytes(res), ("5.6.7.8", 6666))
     assert commands[0] == res
     b.process_commands(commands)
 
-    req = ca.SearchRequest(name='LIRR', cid=0, version=13)
+    req = ca.SearchRequest(name="LIRR", cid=0, version=13)
     with pytest.raises(ca.LocalProtocolError):
         b.send(req)
     b.send(ca.VersionRequest(priority=0, version=13), req)
 
-    res = ca.SearchResponse(port=6666, ip='1.2.3.4', cid=0, version=13)
-    addr = ('1.2.3.4', 6666)
+    res = ca.SearchResponse(port=6666, ip="1.2.3.4", cid=0, version=13)
+    addr = ("1.2.3.4", 6666)
     commands = b.recv(bytes(res), addr)
     # see changes to _broadcaster.py.  Apparently rsrv does not always conform
     # to the protocol and include a version response before search responsesq
@@ -202,8 +215,8 @@ def test_broadcaster_checks():
 def test_methods(circuit_pair):
     # testing lines in channel convenience methods not otherwise covered
     cli_circuit, srv_circuit = circuit_pair
-    cli_channel1, srv_channel1 = make_channels(*circuit_pair, 5, 1, name='a')
-    cli_channel2, srv_channel2 = make_channels(*circuit_pair, 5, 1, name='b')
+    cli_channel1, srv_channel1 = make_channels(*circuit_pair, 5, 1, name="a")
+    cli_channel2, srv_channel2 = make_channels(*circuit_pair, 5, 1, name="b")
 
     # smoke test
     srv_channel1.version()
@@ -227,23 +240,27 @@ def test_methods(circuit_pair):
 
 def test_error_response(circuit_pair):
     cli_circuit, srv_circuit = circuit_pair
-    cli_channel, srv_channel = make_channels(*circuit_pair, 5, 1, name='a')
+    cli_channel, srv_channel = make_channels(*circuit_pair, 5, 1, name="a")
     req = cli_channel.read()
     buffers_to_send = cli_circuit.send(req)
     (req_received,), _ = srv_circuit.recv(*buffers_to_send)
     srv_circuit.process_command(req_received)
-    srv_circuit.send(ca.ErrorResponse(original_request=req_received,
-                                      cid=srv_channel.cid,
-                                      status_code=42,
-                                      error_message='Tom missed the train.'))
+    srv_circuit.send(
+        ca.ErrorResponse(
+            original_request=req_received,
+            cid=srv_channel.cid,
+            status_code=42,
+            error_message="Tom missed the train.",
+        )
+    )
 
 
 def test_create_channel_failure(circuit_pair):
     cli_circuit, srv_circuit = circuit_pair
     cid = cli_circuit.new_channel_id()
     sid = srv_circuit.new_channel_id()
-    cli_channel = ca.ClientChannel('doomed', cli_circuit, cid)
-    srv_channel = ca.ServerChannel('doomed', srv_circuit, sid)
+    cli_channel = ca.ClientChannel("doomed", cli_circuit, cid)
+    srv_channel = ca.ServerChannel("doomed", srv_circuit, sid)
 
     # Send and receive CreateChanRequest
     req = cli_channel.create()
@@ -268,7 +285,7 @@ def test_create_channel_failure(circuit_pair):
 
 def test_server_disconn(circuit_pair):
     cli_circuit, srv_circuit = circuit_pair
-    cli_channel, srv_channel = make_channels(*circuit_pair, 5, 1, name='a')
+    cli_channel, srv_channel = make_channels(*circuit_pair, 5, 1, name="a")
 
     buffers_to_send = srv_circuit.send(srv_channel.disconnect())
     assert srv_channel.states[ca.CLIENT] is ca.CLOSED
@@ -284,7 +301,7 @@ def test_server_disconn(circuit_pair):
 
 def test_clear(circuit_pair):
     cli_circuit, srv_circuit = circuit_pair
-    cli_channel, srv_channel = make_channels(*circuit_pair, 5, 1, name='a')
+    cli_channel, srv_channel = make_channels(*circuit_pair, 5, 1, name="a")
 
     assert cli_channel.states[ca.CLIENT] is ca.CONNECTED
     assert cli_channel.states[ca.SERVER] is ca.CONNECTED
@@ -317,8 +334,8 @@ def test_clear(circuit_pair):
 def test_dead_circuit(circuit_pair):
     # Connect two channels.
     cli_circuit, srv_circuit = circuit_pair
-    cli_channel1, srv_channel1 = make_channels(*circuit_pair, 5, 1, name='a')
-    cli_channel2, srv_channel2 = make_channels(*circuit_pair, 5, 1, name='b')
+    cli_channel1, srv_channel1 = make_channels(*circuit_pair, 5, 1, name="a")
+    cli_channel2, srv_channel2 = make_channels(*circuit_pair, 5, 1, name="b")
 
     # Check states.
     assert cli_circuit.states[ca.CLIENT] is ca.CONNECTED
@@ -356,7 +373,7 @@ def test_dead_circuit(circuit_pair):
 
 
 def test_circuit_equality():
-    a = ca.VirtualCircuit(ca.CLIENT, ('asdf', 1234), 1)
-    b = ca.VirtualCircuit(ca.CLIENT, ('asdf', 1234), 1)
-    c = ca.VirtualCircuit(ca.CLIENT, ('asdf', 1234), 2)
+    a = ca.VirtualCircuit(ca.CLIENT, ("asdf", 1234), 1)
+    b = ca.VirtualCircuit(ca.CLIENT, ("asdf", 1234), 1)
+    c = ca.VirtualCircuit(ca.CLIENT, ("asdf", 1234), 2)
     assert a == b != c

@@ -6,8 +6,11 @@ import trio
 from trio import socket
 
 import caproto as ca
-from caproto import (get_beacon_address_list, get_environment_variables,
-                     find_available_tcp_port)
+from caproto import (
+    get_beacon_address_list,
+    get_environment_variables,
+    find_available_tcp_port,
+)
 from ..server import AsyncLibraryLayer
 
 
@@ -15,20 +18,24 @@ class DisconnectedCircuit(Exception):
     ...
 
 
-Subscription = namedtuple('Subscription', ('mask', 'circuit', 'channel',
-                                           'data_type',
-                                           'data_count', 'subscriptionid'))
-SubscriptionSpec = namedtuple('SubscriptionSpec', ('db_entry', 'data_type',
-                                                   'mask'))
+Subscription = namedtuple(
+    "Subscription",
+    ("mask", "circuit", "channel", "data_type", "data_count", "subscriptionid"),
+)
+SubscriptionSpec = namedtuple(
+    "SubscriptionSpec", ("db_entry", "data_type", "mask")
+)
 
 
 logger = logging.getLogger(__name__)
 
-STR_ENC = os.environ.get('CAPROTO_STRING_ENCODING', 'latin-1')
+STR_ENC = os.environ.get("CAPROTO_STRING_ENCODING", "latin-1")
 
 
 def _universal_queue(portal, max_len=1000):
+
     class UniversalQueue:
+
         def __init__(self):
             self.queue = trio.Queue(max_len)
             self.portal = portal
@@ -49,17 +56,19 @@ def _universal_queue(portal, max_len=1000):
 
 
 class TrioAsyncLayer(AsyncLibraryLayer):
+
     def __init__(self):
         self.portal = trio.BlockingTrioPortal()
         self.ThreadsafeQueue = _universal_queue(self.portal)
 
-    name = 'trio'
+    name = "trio"
     ThreadsafeQueue = None
     library = trio
 
 
 class TrioVirtualCircuit:
     "Wraps a caproto.VirtualCircuit with a trio client."
+
     def __init__(self, circuit, client, context):
         self.nursery = context.nursery
         self.connected = True
@@ -93,7 +102,7 @@ class TrioVirtualCircuit:
 
         # TODO this may cancel some caputs in progress, need to rethink it
         # await self.pending_tasks.cancel_remaining()
-        print('client connection closed')
+        print("client connection closed")
         self.client.close()
 
     async def send(self, *commands):
@@ -137,10 +146,10 @@ class TrioVirtualCircuit:
             except trio.Cancelled:
                 break
             except ca.RemoteProtocolError as ex:
-                if hasattr(command, 'sid'):
+                if hasattr(command, "sid"):
                     sid = command.sid
                     cid = self.circuit.channels_sid[sid].cid
-                elif hasattr(command, 'cid'):
+                elif hasattr(command, "cid"):
                     cid = command.cid
                     sid = self.circuit.channels[cid].sid
 
@@ -154,27 +163,36 @@ class TrioVirtualCircuit:
                         logger.error(
                             "Client broke the protocol in a recoverable "
                             "way, but channel disconnection of cid=%d sid=%d "
-                            "failed.", cid, sid,
-                            exc_info=ex)
+                            "failed.",
+                            cid,
+                            sid,
+                            exc_info=ex,
+                        )
                         break
                     else:
                         logger.error(
                             "Client broke the protocol in a recoverable "
                             "way. Disconnected channel cid=%d sid=%d "
-                            "but keeping the circuit alive.", cid, sid,
-                            exc_info=ex)
+                            "but keeping the circuit alive.",
+                            cid,
+                            sid,
+                            exc_info=ex,
+                        )
 
                     async with self.new_command_condition:
                         await self.new_command_condition.notify_all()
                     continue
                 else:
-                    logger.error("Client broke the protocol in an "
-                                 "unrecoverable way.", exc_info=ex)
+                    logger.error(
+                        "Client broke the protocol in an " "unrecoverable way.",
+                        exc_info=ex,
+                    )
                     # TODO: Kill the circuit.
                     break
             except Exception as ex:
-                logger.error('Circuit command queue evaluation failed',
-                             exc_info=ex)
+                logger.error(
+                    "Circuit command queue evaluation failed", exc_info=ex
+                )
                 continue
 
             try:
@@ -189,21 +207,30 @@ class TrioVirtualCircuit:
             except Exception as ex:
                 if not self.connected:
                     if not isinstance(command, ca.ClearChannelRequest):
-                        logger.error('Trio server error after client '
-                                     'disconnection: %s', command)
+                        logger.error(
+                            "Trio server error after client "
+                            "disconnection: %s",
+                            command,
+                        )
                     break
 
-                logger.error('Trio server failed to process command: %s',
-                             command, exc_info=ex)
+                logger.error(
+                    "Trio server failed to process command: %s",
+                    command,
+                    exc_info=ex,
+                )
 
-                if hasattr(command, 'sid'):
+                if hasattr(command, "sid"):
                     cid = self.circuit.channels_sid[command.sid].cid
 
                     response_command = ca.ErrorResponse(
-                        command, cid,
+                        command,
+                        cid,
                         status_code=ca.ECA_INTERNAL.code_with_severity,
-                        error_message=('Python exception: {} {}'
-                                       ''.format(type(ex).__name__, ex))
+                        error_message=(
+                            "Python exception: {} {}"
+                            "".format(type(ex).__name__, ex)
+                        ),
                     )
                     await self.send(response_command)
 
@@ -211,7 +238,8 @@ class TrioVirtualCircuit:
                 self.new_command_condition.notify_all()
 
     async def _process_command(self, command):
-        '''Process a command from a client, and return the server response'''
+        """Process a command from a client, and return the server response"""
+
         def get_db_entry():
             chan = self.circuit.channels_sid[command.sid]
             db_entry = self.context[chan.name.decode(STR_ENC)]
@@ -223,16 +251,19 @@ class TrioVirtualCircuit:
             return [ca.VersionResponse(13)]
         elif isinstance(command, ca.CreateChanRequest):
             db_entry = self.context[command.name.decode(STR_ENC)]
-            access = db_entry.check_access(self.client_hostname,
-                                           self.client_username)
+            access = db_entry.check_access(
+                self.client_hostname, self.client_username
+            )
 
-            return [ca.AccessRightsResponse(cid=command.cid,
-                                            access_rights=access),
-                    ca.CreateChanResponse(data_type=db_entry.data_type,
-                                          data_count=len(db_entry),
-                                          cid=command.cid,
-                                          sid=self.circuit.new_channel_id()),
-                    ]
+            return [
+                ca.AccessRightsResponse(cid=command.cid, access_rights=access),
+                ca.CreateChanResponse(
+                    data_type=db_entry.data_type,
+                    data_count=len(db_entry),
+                    cid=command.cid,
+                    sid=self.circuit.new_channel_id(),
+                ),
+            ]
         elif isinstance(command, ca.HostNameRequest):
             self.client_hostname = command.name.decode(STR_ENC)
         elif isinstance(command, ca.ClientNameRequest):
@@ -240,32 +271,48 @@ class TrioVirtualCircuit:
         elif isinstance(command, ca.ReadNotifyRequest):
             chan, db_entry = get_db_entry()
             metadata, data = await db_entry.auth_read(
-                self.client_hostname, self.client_username,
-                command.data_type)
-            return [chan.read(data=data, data_type=command.data_type,
-                              data_count=len(data), status=1,
-                              ioid=command.ioid, metadata=metadata)
-                    ]
+                self.client_hostname, self.client_username, command.data_type
+            )
+            return [
+                chan.read(
+                    data=data,
+                    data_type=command.data_type,
+                    data_count=len(data),
+                    status=1,
+                    ioid=command.ioid,
+                    metadata=metadata,
+                )
+            ]
         elif isinstance(command, (ca.WriteRequest, ca.WriteNotifyRequest)):
             chan, db_entry = get_db_entry()
             client_waiting = isinstance(command, ca.WriteNotifyRequest)
 
             async def handle_write():
-                '''Wait for an asynchronous caput to finish'''
+                """Wait for an asynchronous caput to finish"""
                 try:
                     write_status = await db_entry.auth_write(
-                        self.client_hostname, self.client_username,
-                        command.data, command.data_type, command.metadata)
+                        self.client_hostname,
+                        self.client_username,
+                        command.data,
+                        command.data_type,
+                        command.metadata,
+                    )
                 except Exception as ex:
-                    logger.exception('Invalid write request by %s (%s): %r',
-                                     self.client_username,
-                                     self.client_hostname, command)
+                    logger.exception(
+                        "Invalid write request by %s (%s): %r",
+                        self.client_username,
+                        self.client_hostname,
+                        command,
+                    )
                     cid = self.circuit.channels_sid[command.sid].cid
                     response_command = ca.ErrorResponse(
-                        command, cid,
+                        command,
+                        cid,
                         status_code=ca.ECA_INTERNAL.code_with_severity,
-                        error_message=('Python exception: {} {}'
-                                       ''.format(type(ex).__name__, ex))
+                        error_message=(
+                            "Python exception: {} {}"
+                            "".format(type(ex).__name__, ex)
+                        ),
                     )
                 else:
                     if write_status is None:
@@ -273,8 +320,9 @@ class TrioVirtualCircuit:
                         # returning none for write_status can just be
                         # considered laziness
                         write_status = True
-                    response_command = chan.write(ioid=command.ioid,
-                                                  status=write_status)
+                    response_command = chan.write(
+                        ioid=command.ioid, status=write_status
+                    )
 
                 if client_waiting:
                     await self.send(response_command)
@@ -285,15 +333,19 @@ class TrioVirtualCircuit:
         elif isinstance(command, ca.EventAddRequest):
             chan, db_entry = get_db_entry()
             # TODO no support for deprecated low/high/to
-            sub = Subscription(mask=command.mask,
-                               channel=chan,
-                               circuit=self,
-                               data_type=command.data_type,
-                               data_count=command.data_count,
-                               subscriptionid=command.subscriptionid)
-            sub_spec = SubscriptionSpec(db_entry=db_entry,
-                                        data_type=command.data_type,
-                                        mask=command.mask)
+            sub = Subscription(
+                mask=command.mask,
+                channel=chan,
+                circuit=self,
+                data_type=command.data_type,
+                data_count=command.data_count,
+                subscriptionid=command.subscriptionid,
+            )
+            sub_spec = SubscriptionSpec(
+                db_entry=db_entry,
+                data_type=command.data_type,
+                mask=command.mask,
+            )
             self.subscriptions[sub_spec].append(sub)
             self.context.subscriptions[sub_spec].append(sub)
             await db_entry.subscribe(self.context.subscription_queue, sub_spec)
@@ -301,13 +353,14 @@ class TrioVirtualCircuit:
             chan, db_entry = get_db_entry()
             await self._cull_subscriptions(
                 db_entry,
-                lambda sub: sub.subscriptionid == command.subscriptionid)
+                lambda sub: sub.subscriptionid == command.subscriptionid,
+            )
             return [chan.unsubscribe(command.subscriptionid)]
         elif isinstance(command, ca.ClearChannelRequest):
             chan, db_entry = get_db_entry()
             await self._cull_subscriptions(
-                db_entry,
-                lambda sub: sub.channel == command.sid)
+                db_entry, lambda sub: sub.channel == command.sid
+            )
             return [chan.disconnect()]
         elif isinstance(command, ca.EchoRequest):
             return [ca.EchoResponse()]
@@ -336,7 +389,8 @@ class TrioVirtualCircuit:
 
 
 class Context:
-    def __init__(self, host, port, pvdb, *, log_level='ERROR'):
+
+    def __init__(self, host, port, pvdb, *, log_level="ERROR"):
         self.nursery = None
         self.host = host
         self.port = port
@@ -353,15 +407,15 @@ class Context:
         self.beacon_count = 0
         self.environ = get_environment_variables()
 
-        ignore_addresses = self.environ['EPICS_CAS_IGNORE_ADDR_LIST']
-        self.ignore_addresses = ignore_addresses.split(' ')
+        ignore_addresses = self.environ["EPICS_CAS_IGNORE_ADDR_LIST"]
+        self.ignore_addresses = ignore_addresses.split(" ")
 
     async def broadcaster_udp_server_loop(self, task_status):
         self.udp_sock = ca.bcast_socket(socket)
         try:
             await self.udp_sock.bind((self.host, ca.EPICS_CA1_PORT))
         except Exception:
-            logger.exception('[server] udp bind failure!')
+            logger.exception("[server] udp bind failure!")
             raise
 
         task_status.started()
@@ -397,14 +451,16 @@ class Context:
             try:
                 inst = self.pvdb[rec]
             except KeyError:
-                raise KeyError(f'Neither record nor field exists: '
-                               f'{rec_field}')
+                raise KeyError(
+                    f"Neither record nor field exists: " f"{rec_field}"
+                )
 
             try:
                 inst = inst.get_field(field)
             except (AttributeError, KeyError):
-                raise KeyError(f'Neither record nor field exists: '
-                               f'{rec_field}')
+                raise KeyError(
+                    f"Neither record nor field exists: " f"{rec_field}"
+                )
 
             # Cache record.FIELD for later usage
             self.pvdb[rec_field] = inst
@@ -453,12 +509,13 @@ class Context:
             except trio.Cancelled:
                 break
             except Exception as ex:
-                logger.error('Broadcaster command queue evaluation failed',
-                             exc_info=ex)
+                logger.error(
+                    "Broadcaster command queue evaluation failed", exc_info=ex
+                )
                 continue
 
     async def tcp_handler(self, client, addr):
-        '''Handler for each new TCP client to the server'''
+        """Handler for each new TCP client to the server"""
         cavc = ca.VirtualCircuit(ca.SERVER, addr, None)
         circuit = TrioVirtualCircuit(cavc, client, self)
         self.circuits.add(circuit)
@@ -474,7 +531,7 @@ class Context:
                 break
 
     async def circuit_disconnected(self, circuit):
-        '''Notification from circuit that its connection has closed'''
+        """Notification from circuit that its connection has closed"""
         self.circuits.remove(circuit)
 
     async def subscription_queue_loop(self, task_status):
@@ -494,40 +551,45 @@ class Context:
                 # if the subscription has a non-zero value respect it,
                 # else default to the full length of the data
                 data_count = sub.data_count or len(values)
-                command = chan.subscribe(data=values,
-                                         metadata=metadata,
-                                         data_type=sub.data_type,
-                                         data_count=data_count,
-                                         subscriptionid=sub.subscriptionid,
-                                         status_code=1)
+                command = chan.subscribe(
+                    data=values,
+                    metadata=metadata,
+                    data_type=sub.data_type,
+                    data_count=data_count,
+                    subscriptionid=sub.subscriptionid,
+                    status_code=1,
+                )
                 await sub.circuit.send(command)
 
     async def broadcast_beacon_loop(self, task_status):
-        beacon_period = self.environ['EPICS_CAS_BEACON_PERIOD']
+        beacon_period = self.environ["EPICS_CAS_BEACON_PERIOD"]
         addresses = get_beacon_address_list()
 
         task_status.started()
 
         while True:
-            beacon = ca.RsrvIsUpResponse(13, self.port, self.beacon_count,
-                                         self.host)
+            beacon = ca.RsrvIsUpResponse(
+                13, self.port, self.beacon_count, self.host
+            )
             bytes_to_send = self.broadcaster.send(beacon)
             for addr_port in addresses:
                 try:
                     await self.udp_sock.sendto(bytes_to_send, addr_port)
                 except IOError:
-                    logger.exception("Failed to send beacon to %r. Try "
-                                     "setting "
-                                     "EPICS_CAS_BEACON_AUTO_ADDR_LIST=no and "
-                                     "EPICS_CAS_BEACON_ADDR_LIST=<addresses>.",
-                                     addr_port)
+                    logger.exception(
+                        "Failed to send beacon to %r. Try "
+                        "setting "
+                        "EPICS_CAS_BEACON_AUTO_ADDR_LIST=no and "
+                        "EPICS_CAS_BEACON_ADDR_LIST=<addresses>.",
+                        addr_port,
+                    )
                     raise
             self.beacon_count += 1
             await trio.sleep(beacon_period)
 
     async def server_accept_loop(self, addr, port, *, task_status):
         with trio.socket.socket() as listen_sock:
-            logger.debug('Listening on %s:%d', addr, port)
+            logger.debug("Listening on %s:%d", addr, port)
             await listen_sock.bind((addr, port))
             listen_sock.listen()
 
@@ -539,19 +601,22 @@ class Context:
 
     @property
     def startup_methods(self):
-        'Notify all ChannelData instances of the server startup'
-        return [instance.server_startup
-                for name, instance in self.pvdb.items()
-                if hasattr(instance, 'server_startup') and
-                instance.server_startup is not None]
+        "Notify all ChannelData instances of the server startup"
+        return [
+            instance.server_startup
+            for name, instance in self.pvdb.items()
+            if hasattr(instance, "server_startup")
+            and instance.server_startup is not None
+        ]
 
     async def run(self):
-        'Start the server'
+        "Start the server"
         try:
             async with trio.open_nursery() as self.nursery:
                 for addr, port in ca.get_server_address_list(self.port):
-                    await self.nursery.start(self.server_accept_loop,
-                                             addr, port)
+                    await self.nursery.start(
+                        self.server_accept_loop, addr, port
+                    )
                 await self.nursery.start(self.broadcaster_udp_server_loop)
                 await self.nursery.start(self.broadcaster_queue_loop)
                 await self.nursery.start(self.subscription_queue_loop)
@@ -559,7 +624,7 @@ class Context:
 
                 async_lib = TrioAsyncLayer()
                 for method in self.startup_methods:
-                    logger.debug('Calling startup method %r', method)
+                    logger.debug("Calling startup method %r", method)
 
                     async def startup(task_status):
                         task_status.started()
@@ -567,10 +632,10 @@ class Context:
 
                     await self.nursery.start(startup)
         except trio.Cancelled:
-            logger.info('Server task cancelled')
+            logger.info("Server task cancelled")
 
     async def stop(self):
-        'Stop the server'
+        "Stop the server"
         nursery = self.nursery
         if nursery is None:
             return
@@ -578,10 +643,11 @@ class Context:
         nursery.cancel_scope.cancel()
 
 
-async def start_server(pvdb, log_level='DEBUG', *, bind_addr='0.0.0.0'):
-    '''Start a trio server with a given PV database'''
+async def start_server(pvdb, log_level="DEBUG", *, bind_addr="0.0.0.0"):
+    """Start a trio server with a given PV database"""
     logger.setLevel(log_level)
-    ctx = Context(bind_addr, find_available_tcp_port(), pvdb,
-                  log_level=log_level)
-    logger.info('Server starting up on %s:%d', ctx.host, ctx.port)
+    ctx = Context(
+        bind_addr, find_available_tcp_port(), pvdb, log_level=log_level
+    )
+    logger.info("Server starting up on %s:%d", ctx.host, ctx.port)
     return await ctx.run()

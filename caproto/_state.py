@@ -12,32 +12,59 @@
 # Within each state, a dictionary maps each allowed Command to the state it
 # will move the component into when processed.
 
-from ._commands import (AccessRightsResponse, ClearChannelRequest,
-                        ClearChannelResponse, ClientNameRequest,
-                        CreateChanRequest, CreateChanResponse, EchoRequest,
-                        EchoResponse, ErrorResponse, EventAddRequest,
-                        EventAddResponse, EventCancelRequest,
-                        EventCancelResponse, HostNameRequest,
-                        ReadNotifyRequest, ReadNotifyResponse,
-                        ServerDisconnResponse, VersionRequest, VersionResponse,
-                        WriteNotifyRequest, WriteNotifyResponse, WriteRequest,
-                        EventsOnRequest, EventsOffRequest, CreateChFailResponse
-                        )
-from ._utils import (AWAIT_CREATE_CHAN_RESPONSE, AWAIT_VERSION_RESPONSE,
-                     CLIENT, CLOSED, CONNECTED, DISCONNECTED, FAILED, IDLE,
-                     MUST_CLOSE, REQUEST, RESPONSE, SEND_CREATE_CHAN_REQUEST,
-                     SEND_CREATE_CHAN_RESPONSE, SEND_VERSION_REQUEST,
-                     SEND_VERSION_RESPONSE, SERVER,
-
-                     LocalProtocolError, RemoteProtocolError,
-                     )
+from ._commands import (
+    AccessRightsResponse,
+    ClearChannelRequest,
+    ClearChannelResponse,
+    ClientNameRequest,
+    CreateChanRequest,
+    CreateChanResponse,
+    EchoRequest,
+    EchoResponse,
+    ErrorResponse,
+    EventAddRequest,
+    EventAddResponse,
+    EventCancelRequest,
+    EventCancelResponse,
+    HostNameRequest,
+    ReadNotifyRequest,
+    ReadNotifyResponse,
+    ServerDisconnResponse,
+    VersionRequest,
+    VersionResponse,
+    WriteNotifyRequest,
+    WriteNotifyResponse,
+    WriteRequest,
+    EventsOnRequest,
+    EventsOffRequest,
+    CreateChFailResponse,
+)
+from ._utils import (
+    AWAIT_CREATE_CHAN_RESPONSE,
+    AWAIT_VERSION_RESPONSE,
+    CLIENT,
+    CLOSED,
+    CONNECTED,
+    DISCONNECTED,
+    FAILED,
+    IDLE,
+    MUST_CLOSE,
+    REQUEST,
+    RESPONSE,
+    SEND_CREATE_CHAN_REQUEST,
+    SEND_CREATE_CHAN_RESPONSE,
+    SEND_VERSION_REQUEST,
+    SEND_VERSION_RESPONSE,
+    SERVER,
+    LocalProtocolError,
+    RemoteProtocolError,
+)
 
 
 COMMAND_TRIGGERED_CIRCUIT_TRANSITIONS = {
     CLIENT: {
         SEND_VERSION_REQUEST: {
             VersionRequest: AWAIT_VERSION_RESPONSE,
-
             # C channel access server (rsrv) sends VersionResponse upon TCP
             # connection, unprompted by a VersionRequest, so we must accept
             # that here.
@@ -45,11 +72,9 @@ COMMAND_TRIGGERED_CIRCUIT_TRANSITIONS = {
         },
         AWAIT_VERSION_RESPONSE: {
             VersionResponse: CONNECTED,
-
             # Host and Client requests may come before or after we connect.
             HostNameRequest: AWAIT_VERSION_RESPONSE,
             ClientNameRequest: AWAIT_VERSION_RESPONSE,
-
             EchoRequest: AWAIT_VERSION_RESPONSE,
             EchoResponse: AWAIT_VERSION_RESPONSE,
             ErrorResponse: AWAIT_VERSION_RESPONSE,
@@ -57,17 +82,13 @@ COMMAND_TRIGGERED_CIRCUIT_TRANSITIONS = {
         CONNECTED: {
             VersionResponse: CONNECTED,
             VersionRequest: CONNECTED,
-
             # Host and Client requests may come before or after we connect.
             HostNameRequest: CONNECTED,
             ClientNameRequest: CONNECTED,
-
             EventsOffRequest: CONNECTED,
             EventsOnRequest: CONNECTED,
-
             EchoRequest: CONNECTED,
             EchoResponse: CONNECTED,
-
             ErrorResponse: CONNECTED,
         },
         DISCONNECTED: {
@@ -77,7 +98,6 @@ COMMAND_TRIGGERED_CIRCUIT_TRANSITIONS = {
     SERVER: {
         IDLE: {
             VersionRequest: SEND_VERSION_RESPONSE,
-
             # C channel access server (rsrv) sends VersionResponse upon TCP
             # connection, unprompted by a VersionRequest, so we must accept
             # that here.
@@ -85,27 +105,21 @@ COMMAND_TRIGGERED_CIRCUIT_TRANSITIONS = {
         },
         SEND_VERSION_RESPONSE: {
             VersionResponse: CONNECTED,
-
             # Host and Client requests may come before or after we connect.
             HostNameRequest: SEND_VERSION_RESPONSE,
             ClientNameRequest: SEND_VERSION_RESPONSE,
-
             ErrorResponse: SEND_VERSION_RESPONSE,
         },
         CONNECTED: {
             VersionResponse: CONNECTED,
             VersionRequest: CONNECTED,
-
             # Host and Client requests may come before or after we connect.
             HostNameRequest: CONNECTED,
             ClientNameRequest: CONNECTED,
-
             EventsOffRequest: CONNECTED,
             EventsOnRequest: CONNECTED,
-
             EchoRequest: CONNECTED,
             EchoResponse: CONNECTED,
-
             ErrorResponse: CONNECTED,
         },
         DISCONNECTED: {
@@ -129,22 +143,18 @@ COMMAND_TRIGGERED_CHANNEL_TRANSITIONS = {
         },
         CONNECTED: {
             AccessRightsResponse: CONNECTED,
-
             ReadNotifyRequest: CONNECTED,
             ReadNotifyResponse: CONNECTED,
             WriteNotifyRequest: CONNECTED,
             WriteNotifyResponse: CONNECTED,
             WriteRequest: CONNECTED,
-
             EventAddRequest: CONNECTED,
             EventAddResponse: CONNECTED,
             EventCancelRequest: CONNECTED,
             EventCancelResponse: CONNECTED,
-
             ClearChannelRequest: MUST_CLOSE,
             ServerDisconnResponse: CLOSED,
             ErrorResponse: CONNECTED,
-
             # The commands ReadRequest, WriteResponse, and
             # ReadSync (deprecated in 3.13) will need to be added here if we
             # want to support them.
@@ -153,7 +163,6 @@ COMMAND_TRIGGERED_CHANNEL_TRANSITIONS = {
             ClearChannelResponse: CLOSED,
             ServerDisconnResponse: CLOSED,
             ErrorResponse: MUST_CLOSE,
-
             # All other received commands are acceptable:
             AccessRightsResponse: MUST_CLOSE,
             ReadNotifyResponse: MUST_CLOSE,
@@ -168,7 +177,7 @@ COMMAND_TRIGGERED_CHANNEL_TRANSITIONS = {
             # a terminal state
             ClearChannelResponse: FAILED,
             ServerDisconnResponse: FAILED,
-            ErrorResponse: FAILED
+            ErrorResponse: FAILED,
         },
     },
     SERVER: {
@@ -184,18 +193,15 @@ COMMAND_TRIGGERED_CHANNEL_TRANSITIONS = {
         },
         CONNECTED: {
             AccessRightsResponse: CONNECTED,
-
             ReadNotifyRequest: CONNECTED,
             ReadNotifyResponse: CONNECTED,
             WriteNotifyRequest: CONNECTED,
             WriteNotifyResponse: CONNECTED,
             WriteRequest: CONNECTED,
-
             EventAddRequest: CONNECTED,
             EventAddResponse: CONNECTED,
             EventCancelRequest: CONNECTED,
             EventCancelResponse: CONNECTED,
-
             ClearChannelRequest: MUST_CLOSE,
             ServerDisconnResponse: CLOSED,
             ErrorResponse: CONNECTED,
@@ -207,7 +213,6 @@ COMMAND_TRIGGERED_CHANNEL_TRANSITIONS = {
             ClearChannelResponse: CLOSED,
             ServerDisconnResponse: CLOSED,
             ErrorResponse: MUST_CLOSE,
-
             # These are allowed because they may already be in flight when
             # the client requests to close. The important thing is that there
             # is a restriction on any additional client _requests_ in this
@@ -225,7 +230,7 @@ COMMAND_TRIGGERED_CHANNEL_TRANSITIONS = {
             # a terminal state
             ClearChannelResponse: FAILED,
             ServerDisconnResponse: FAILED,
-            ErrorResponse: FAILED
+            ErrorResponse: FAILED,
         },
     },
 }
@@ -246,7 +251,7 @@ STATE_TRIGGERED_TRANSITIONS = {
         (MUST_CLOSE, DISCONNECTED): (CLOSED, DISCONNECTED),
         (FAILED, DISCONNECTED): (CLOSED, DISCONNECTED),
         (CLOSED, DISCONNECTED): (CLOSED, DISCONNECTED),
-    }
+    },
 }
 
 
@@ -266,9 +271,11 @@ class _BaseState:
             new_state = allowed_transitions[command_type]
         except KeyError:
             err_cls = get_exception(role, command_type)
-            err = err_cls(f"{self} cannot handle command type "
-                          f"{command_type.__name__} when role={role} and "
-                          f"state={self.states[role]}")
+            err = err_cls(
+                f"{self} cannot handle command type "
+                f"{command_type.__name__} when role={role} and "
+                f"state={self.states[role]}"
+            )
             raise err from None
         self.states[role] = new_state
 
@@ -285,8 +292,9 @@ class ChannelState(_BaseState):
         self.circuit_state = circuit_state
 
     def _fire_state_triggered_transitions(self, role):
-        new = self.STT[role].get((self.states[role],
-                                  self.circuit_state.states[role]))
+        new = self.STT[role].get(
+            (self.states[role], self.circuit_state.states[role])
+        )
         if new is not None:
             self.states[role], self.circuit_state.states[role] = new
 

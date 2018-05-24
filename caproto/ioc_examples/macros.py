@@ -6,11 +6,11 @@ class MacroifiedNames(PVGroup):
     """
 
     """
-    placeholder1 = pvproperty(value=[0], name='{beamline}:{thing}.VAL')
-    placeholder2 = pvproperty(value=[0], name='{beamline}:{thing}.RBV')
+    placeholder1 = pvproperty(value=[0], name="{beamline}:{thing}.VAL")
+    placeholder2 = pvproperty(value=[0], name="{beamline}:{thing}.RBV")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # usage: macros.py <PREFIX> <BEAMLINE> <THING>
     import sys
     import curio
@@ -19,19 +19,19 @@ if __name__ == '__main__':
     try:
         prefix = sys.argv[1]
     except IndexError:
-        prefix = 'prefix:'
+        prefix = "prefix:"
 
     try:
         beamline = sys.argv[2]
     except IndexError:
-        beamline = 'my_beamline'
+        beamline = "my_beamline"
 
     try:
         thing = sys.argv[3]
     except IndexError:
-        thing = 'thing'
+        thing = "thing"
 
-    macros = {'beamline': beamline, 'thing': thing}
+    macros = {"beamline": beamline, "thing": thing}
     ioc = MacroifiedNames(prefix=prefix, macros=macros)
-    print('PVs:', list(ioc.pvdb))
+    print("PVs:", list(ioc.pvdb))
     curio.run(start_server(ioc.pvdb))

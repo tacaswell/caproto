@@ -9,12 +9,11 @@ from math import log10
 from collections import Iterable
 
 import caproto as ca
-from .client import (Context, SharedBroadcaster, AUTOMONITOR_MAXLENGTH,
-                     STR_ENC)
+from .client import Context, SharedBroadcaster, AUTOMONITOR_MAXLENGTH, STR_ENC
 from caproto import AccessRights, field_types, ChannelType
 
 
-__all__ = ['PV', 'get_pv', 'caget', 'caput']
+__all__ = ["PV", "get_pv", "caget", "caput"]
 
 
 logger = logging.getLogger(__name__)
@@ -37,6 +36,7 @@ def _args_lock(func):
         with self._args_lock:
             ret = func(self, *args, **kwargs)
             return ret
+
     return inner
 
 
@@ -44,71 +44,75 @@ def ensure_connection(func):
     # TODO get timeout default from func signature
     @functools.wraps(func)
     def inner(self, *args, **kwargs):
-        self.wait_for_connection(timeout=kwargs.get('timeout', 5.0))
+        self.wait_for_connection(timeout=kwargs.get("timeout", 5.0))
         return func(self, *args, **kwargs)
+
     return inner
 
 
 def _parse_dbr_metadata(dbr_data):
-    'DBR data -> pyepics metadata dict'
+    "DBR data -> pyepics metadata dict"
     ret = {}
 
-    arg_map = {'status': 'status',
-               'severity': 'severity',
-               'precision': 'precision',
-               'units': 'units',
-               'upper_disp_limit': 'upper_disp_limit',
-               'lower_disp_limit': 'lower_disp_limit',
-               'upper_alarm_limit': 'upper_alarm_limit',
-               'upper_warning_limit': 'upper_warning_limit',
-               'lower_warning_limit': 'lower_warning_limit',
-               'lower_alarm_limit': 'lower_alarm_limit',
-               'upper_ctrl_limit': 'upper_ctrl_limit',
-               'lower_ctrl_limit': 'lower_ctrl_limit',
-               'strs': 'enum_strs',
-               # 'secondsSinceEpoch': 'posixseconds',
-               # 'nanoSeconds': 'nanoseconds',
-               }
+    arg_map = {
+        "status": "status",
+        "severity": "severity",
+        "precision": "precision",
+        "units": "units",
+        "upper_disp_limit": "upper_disp_limit",
+        "lower_disp_limit": "lower_disp_limit",
+        "upper_alarm_limit": "upper_alarm_limit",
+        "upper_warning_limit": "upper_warning_limit",
+        "lower_warning_limit": "lower_warning_limit",
+        "lower_alarm_limit": "lower_alarm_limit",
+        "upper_ctrl_limit": "upper_ctrl_limit",
+        "lower_ctrl_limit": "lower_ctrl_limit",
+        "strs": "enum_strs",
+        # 'secondsSinceEpoch': 'posixseconds',
+        # 'nanoSeconds': 'nanoseconds',
+    }
 
     for attr, arg in arg_map.items():
         if hasattr(dbr_data, attr):
             ret[arg] = getattr(dbr_data, attr)
 
-    if ret.get('enum_strs', None):
-        ret['enum_strs'] = tuple(k.value.decode(STR_ENC) for
-                                 k in ret['enum_strs'] if k.value)
+    if ret.get("enum_strs", None):
+        ret["enum_strs"] = tuple(
+            k.value.decode(STR_ENC) for k in ret["enum_strs"] if k.value
+        )
 
-    if hasattr(dbr_data, 'nanoSeconds'):
-        ret['posixseconds'] = dbr_data.secondsSinceEpoch
-        ret['nanoseconds'] = dbr_data.nanoSeconds
-        timestamp = ca.epics_timestamp_to_unix(dbr_data.secondsSinceEpoch,
-                                               dbr_data.nanoSeconds)
-        ret['timestamp'] = timestamp
+    if hasattr(dbr_data, "nanoSeconds"):
+        ret["posixseconds"] = dbr_data.secondsSinceEpoch
+        ret["nanoseconds"] = dbr_data.nanoSeconds
+        timestamp = ca.epics_timestamp_to_unix(
+            dbr_data.secondsSinceEpoch, dbr_data.nanoSeconds
+        )
+        ret["timestamp"] = timestamp
 
-    if 'units' in ret:
-        ret['units'] = ret['units'].decode(STR_ENC)
+    if "units" in ret:
+        ret["units"] = ret["units"].decode(STR_ENC)
 
     return ret
 
 
 def _read_response_to_pyepics(full_type, command):
-    'Parse a ReadResponse command into a pyepics-friendly dict'
+    "Parse a ReadResponse command into a pyepics-friendly dict"
     info = _parse_dbr_metadata(command.metadata)
 
     value = command.data
-    info['raw_value'] = value
-    info['value'] = _scalarify(value, command.data_type, command.data_count)
+    info["raw_value"] = value
+    info["value"] = _scalarify(value, command.data_type, command.data_count)
 
     if full_type in ca.char_types:
-        value = value.tobytes().partition(b'\x00')[0].decode(STR_ENC)
-        info['char_value'] = value
+        value = value.tobytes().partition(b"\x00")[0].decode(STR_ENC)
+        info["char_value"] = value
     elif full_type in ca.string_types:
         value = [v.decode(STR_ENC).strip() for v in value]
         if len(value) == 1:
             value = value[0]
-        info['char_value'] = value
+        info["char_value"] = value
     else:
-        info['char_value'] = None
+        info["char_value"] = None
 
     return info
 
@@ -119,21 +123,33 @@ def _scalarify(data, ntype, count):
     return data
 
 
-def _pyepics_get_value(value, string_value, full_type, native_count, *,
-                       requested_count, enum_strings, as_string, as_numpy):
-    'Handle all the fun pyepics get() kwargs'
-    if (as_string and (full_type in ca.char_types) or
-            full_type in ca.string_types):
+def _pyepics_get_value(
+    value,
+    string_value,
+    full_type,
+    native_count,
+    *,
+    requested_count,
+    enum_strings,
+    as_string,
+    as_numpy,
+):
+    "Handle all the fun pyepics get() kwargs"
+    if (
+        as_string
+        and (full_type in ca.char_types)
+        or full_type in ca.string_types
+    ):
         return string_value
     if as_string and full_type in ca.enum_types:
         if enum_strings is None:
-            raise ValueError('Enum strings unset')
+            raise ValueError("Enum strings unset")
         ret = []
         for r in value:
             try:
                 ret.append(enum_strings[r])
             except IndexError:
-                ret.append('')
+                ret.append("")
         if len(ret) == 1:
             ret, = ret
         return ret
@@ -170,25 +186,58 @@ class PV:
       >>> p.type           # EPICS data type:'string','double','enum','long',..
 """
 
-    _fmtsca = ("<PV '{pvname}', count={count}, type={typefull!r}, "
-               "access={access}>")
-    _fmtarr = ("<PV '{pvname}', count={count}/{nelm}, type={typefull!r}, "
-               "access={access}>")
-    _fields = ('pvname', 'value', 'char_value', 'status', 'ftype', 'chid',
-               'host', 'count', 'access', 'write_access', 'read_access',
-               'severity', 'timestamp', 'posixseconds', 'nanoseconds',
-               'precision', 'units', 'enum_strs',
-               'upper_disp_limit', 'lower_disp_limit', 'upper_alarm_limit',
-               'lower_alarm_limit', 'lower_warning_limit',
-               'upper_warning_limit', 'upper_ctrl_limit', 'lower_ctrl_limit',
-               'put_complete')
+    _fmtsca = (
+        "<PV '{pvname}', count={count}, type={typefull!r}, " "access={access}>"
+    )
+    _fmtarr = (
+        "<PV '{pvname}', count={count}/{nelm}, type={typefull!r}, "
+        "access={access}>"
+    )
+    _fields = (
+        "pvname",
+        "value",
+        "char_value",
+        "status",
+        "ftype",
+        "chid",
+        "host",
+        "count",
+        "access",
+        "write_access",
+        "read_access",
+        "severity",
+        "timestamp",
+        "posixseconds",
+        "nanoseconds",
+        "precision",
+        "units",
+        "enum_strs",
+        "upper_disp_limit",
+        "lower_disp_limit",
+        "upper_alarm_limit",
+        "lower_alarm_limit",
+        "lower_warning_limit",
+        "upper_warning_limit",
+        "upper_ctrl_limit",
+        "lower_ctrl_limit",
+        "put_complete",
+    )
     _default_context = Context(SharedBroadcaster())
 
-    def __init__(self, pvname, callback=None, form='time',
-                 verbose=False, auto_monitor=None, count=None,
-                 connection_callback=None,
-                 connection_timeout=None, access_callback=None, *,
-                 context=None):
+    def __init__(
+        self,
+        pvname,
+        callback=None,
+        form="time",
+        verbose=False,
+        auto_monitor=None,
+        count=None,
+        connection_callback=None,
+        connection_timeout=None,
+        access_callback=None,
+        *,
+        context=None,
+    ):
 
         if context is None:
             context = self._default_context
@@ -211,12 +260,12 @@ class PV:
             self.connection_timeout = 1
 
         self._args = {}.fromkeys(self._fields)
-        self._args['pvname'] = self.pvname
-        self._args['count'] = count
-        self._args['nelm'] = -1
-        self._args['type'] = None
-        self._args['typefull'] = None
-        self._args['access'] = None
+        self._args["pvname"] = self.pvname
+        self._args["count"] = count
+        self._args["nelm"] = -1
+        self._args["type"] = None
+        self._args["typefull"] = None
+        self._args["access"] = None
         self.connection_callbacks = []
         self._cb_count = iter(itertools.count())
 
@@ -225,7 +274,7 @@ class PV:
 
         self.access_callbacks = []
         if access_callback is not None:
-            logger.debug('%s registered callback!', self.pvname)
+            logger.debug("%s registered callback!", self.pvname)
             self.access_callbacks.append(access_callback)
 
         self.callbacks = {}
@@ -233,10 +282,10 @@ class PV:
 
         if isinstance(callback, (tuple, list)):
             for i, thiscb in enumerate(callback):
-                if hasattr(thiscb, '__call__'):
+                if hasattr(thiscb, "__call__"):
                     self.callbacks[i] = (thiscb, {})
 
-        elif hasattr(callback, '__call__'):
+        elif hasattr(callback, "__call__"):
             self.callbacks[0] = (callback, {})
 
         self._caproto_pv, = self._context.get_pvs(
@@ -247,12 +296,12 @@ class PV:
 
         if self._caproto_pv.connected:
             # connection state callback was already called
-            logger.debug('%s already connected', self.pvname)
+            logger.debug("%s already connected", self.pvname)
             self._connection_established(self._caproto_pv)
 
     @property
     def connected(self):
-        'Connection state'
+        "Connection state"
         return self._caproto_pv.connected
 
     def force_connect(self, pvname=None, chid=None, conn=True, **kws):
@@ -266,7 +315,7 @@ class PV:
         connected : bool
             If the PV is connected when this method returns
         """
-        logger.debug(f'{self} wait for connection...')
+        logger.debug(f"{self} wait for connection...")
 
         if timeout is None:
             timeout = self.connection_timeout
@@ -283,67 +332,71 @@ class PV:
         ok = ok and self.connected
 
         if not ok:
-            raise TimeoutError(f'{self.pvname} failed to connect within '
-                               f'{timeout} seconds '
-                               f'(caproto={self._caproto_pv})')
+            raise TimeoutError(
+                f"{self.pvname} failed to connect within "
+                f"{timeout} seconds "
+                f"(caproto={self._caproto_pv})"
+            )
 
         return True
 
     def _connection_closed(self):
-        'Callback when connection is closed'
-        logger.debug('%r disconnected', self)
+        "Callback when connection is closed"
+        logger.debug("%r disconnected", self)
         self._connected = False
 
     def _connection_established(self, caproto_pv):
-        'Callback when connection is initially established'
+        "Callback when connection is initially established"
         # Take in caproto_pv as an argument because this might be called
         # before self._caproto_pv is set.
-        logger.debug('%r connected', self)
+        logger.debug("%r connected", self)
         ch = caproto_pv.channel
         form = self.form
         count = self.default_count
 
         if ch is None:
-            logger.error('Connection dropped in connection callback')
-            logger.error('Connected = %r', self._connected)
+            logger.error("Connection dropped in connection callback")
+            logger.error("Connected = %r", self._connected)
             return
 
         with self._args_lock:
-            self._args['type'] = ch.native_data_type
+            self._args["type"] = ch.native_data_type
 
-            type_key = 'control' if form == 'ctrl' else form
-            self._args['typefull'] = field_types[type_key][ch.native_data_type]
-            self._args['nelm'] = ch.native_data_count
-            self._args['count'] = ch.native_data_count
+            type_key = "control" if form == "ctrl" else form
+            self._args["typefull"] = field_types[type_key][ch.native_data_type]
+            self._args["nelm"] = ch.native_data_count
+            self._args["count"] = ch.native_data_count
             self._access_rights_changed(ch.access_rights)
 
             if self.auto_monitor is None:
-                mcount = count if count is not None else self._args['count']
+                mcount = count if count is not None else self._args["count"]
                 self.auto_monitor = mcount < AUTOMONITOR_MAXLENGTH
 
         self._check_auto_monitor_sub()
         self._connected = True
 
     def _check_auto_monitor_sub(self, count=None):
-        'Ensure auto-monitor subscription is running'
-        if ((self.auto_monitor and self.callbacks) and
-                not self._auto_monitor_sub):
+        "Ensure auto-monitor subscription is running"
+        if (
+            self.auto_monitor and self.callbacks
+        ) and not self._auto_monitor_sub:
             if count is None:
                 count = self.default_count
 
             self._auto_monitor_sub = self._caproto_pv.subscribe(
-                data_type=self.typefull, data_count=count)
+                data_type=self.typefull, data_count=count
+            )
             self._auto_monitor_sub.add_callback(self.__on_changes)
 
     def _connection_state_changed(self, caproto_pv, state):
-        'Connection callback hook from threading.PV.connection_state_changed'
-        connected = (state == 'connected')
+        "Connection callback hook from threading.PV.connection_state_changed"
+        connected = state == "connected"
         with self._state_lock:
             try:
                 if connected:
                     self._connection_established(caproto_pv)
             except Exception as ex:
-                logger.exception('Connection state callback failed!')
+                logger.exception("Connection state callback failed!")
                 raise
             finally:
                 self._connect_event.set()
@@ -368,8 +421,16 @@ class PV:
         return True
 
     @ensure_connection
-    def get(self, *, count=None, as_string=False, as_numpy=True,
-            timeout=None, with_ctrlvars=False, use_monitor=True):
+    def get(
+        self,
+        *,
+        count=None,
+        as_string=False,
+        as_numpy=True,
+        timeout=None,
+        with_ctrlvars=False,
+        use_monitor=True,
+    ):
         """returns current value of PV.
 
         Parameters
@@ -403,28 +464,30 @@ class PV:
                 timeout = 1.0 + log10(max(1, count))
 
         if with_ctrlvars:
-            dt = field_types['control'][self.type]
+            dt = field_types["control"][self.type]
 
         dt = self.typefull
         if not as_string and self.typefull in ca.char_types:
-            re_map = {ChannelType.CHAR: ChannelType.INT,
-                      ChannelType.CTRL_CHAR: ChannelType.CTRL_INT,
-                      ChannelType.TIME_CHAR: ChannelType.TIME_INT,
-                      ChannelType.STS_CHAR: ChannelType.STS_INT}
+            re_map = {
+                ChannelType.CHAR: ChannelType.INT,
+                ChannelType.CTRL_CHAR: ChannelType.CTRL_INT,
+                ChannelType.TIME_CHAR: ChannelType.TIME_INT,
+                ChannelType.STS_CHAR: ChannelType.STS_INT,
+            }
             dt = re_map[self.typefull]
             # TODO if you want char arrays not as_string
             # force no-monitor rather than
             use_monitor = False
         with self._args_lock:
             # trigger going out to got data from network
-            if ((not use_monitor) or
-                (self._auto_monitor_sub is None) or
-                (self._args['value'] is None) or
-                (count is not None and
-                 count > len(self._args['value']))):
+            if (
+                (not use_monitor)
+                or (self._auto_monitor_sub is None)
+                or (self._args["value"] is None)
+                or (count is not None and count > len(self._args["value"]))
+            ):
 
-                command = self._caproto_pv.read(data_type=dt,
-                                                data_count=count)
+                command = self._caproto_pv.read(data_type=dt, data_count=count)
                 info = _read_response_to_pyepics(self.typefull, command)
                 self._args.update(**info)
 
@@ -436,40 +499,56 @@ class PV:
                 enum_strs = None
 
             return _pyepics_get_value(
-                value=info['raw_value'], string_value=info['char_value'],
-                full_type=self.typefull, native_count=info['count'],
-                requested_count=count, enum_strings=enum_strs,
-                as_string=as_string, as_numpy=as_numpy)
+                value=info["raw_value"],
+                string_value=info["char_value"],
+                full_type=self.typefull,
+                native_count=info["count"],
+                requested_count=count,
+                enum_strings=enum_strs,
+                as_string=as_string,
+                as_numpy=as_numpy,
+            )
 
     @ensure_connection
     @_args_lock
-    def put(self, value, *, wait=False, timeout=30.0,
-            use_complete=False, callback=None, callback_data=None):
+    def put(
+        self,
+        value,
+        *,
+        wait=False,
+        timeout=30.0,
+        use_complete=False,
+        callback=None,
+        callback_data=None,
+    ):
         """set value for PV, optionally waiting until the processing is
         complete, and optionally specifying a callback function to be run
         when the processing is complete.
         """
         if callback_data is None:
             callback_data = ()
-        if not self._args['write_access']:
-            raise AccessRightsException('Cannot put to PV according to write access')
+        if not self._args["write_access"]:
+            raise AccessRightsException(
+                "Cannot put to PV according to write access"
+            )
 
-        if self._args['typefull'] in ca.enum_types:
+        if self._args["typefull"] in ca.enum_types:
             if isinstance(value, str):
                 try:
                     value = self.enum_strs.index(value)
                 except ValueError:
-                    raise ValueError('{} is not in Enum ({}'.format(
-                        value, self.enum_strs))
+                    raise ValueError(
+                        "{} is not in Enum ({}".format(value, self.enum_strs)
+                    )
 
         if isinstance(value, str):
             if self.typefull in ca.char_types:
                 # have to add a null-terminator char
-                value = value.encode(STR_ENC) + b'\0'
+                value = value.encode(STR_ENC) + b"\0"
             else:
-                value = (value, )
+                value = (value,)
         elif not isinstance(value, Iterable):
-            value = (value, )
+            value = (value,)
 
         if isinstance(value[0], str):
             value = tuple(v.encode(STR_ENC) for v in value)
@@ -479,9 +558,10 @@ class PV:
         if callback is None and not use_complete:
             run_callback = None
         else:
+
             def run_callback(cmd):
                 if use_complete:
-                    self._args['put_complete'] = True
+                    self._args["put_complete"] = True
                 if callback is not None:
                     callback(*callback_data)
 
@@ -490,23 +570,28 @@ class PV:
         # WriteNotifyResponse.
         if use_notify:
             if use_complete:
-                self._args['put_complete'] = False
+                self._args["put_complete"] = False
         else:
             wait = False
 
-        self._caproto_pv.write(value, wait=wait, callback=run_callback,
-                               timeout=timeout, use_notify=use_notify)
+        self._caproto_pv.write(
+            value,
+            wait=wait,
+            callback=run_callback,
+            timeout=timeout,
+            use_notify=use_notify,
+        )
 
     @ensure_connection
     @_args_lock
     def get_ctrlvars(self, timeout=5, warn=True):
         "get control values for variable"
-        dtype = field_types['control'][self.type]
+        dtype = field_types["control"][self.type]
         command = self._caproto_pv.read(data_type=dtype, timeout=timeout)
         info = _parse_dbr_metadata(command.metadata)
         value = command.data
-        info['raw_value'] = value
-        info['value'] = _scalarify(value, command.data_type, command.data_count)
+        info["raw_value"] = value
+        info["value"] = _scalarify(value, command.data_type, command.data_count)
         self._args.update(**info)
         self.force_read_access_rights()
         return info
@@ -515,36 +600,36 @@ class PV:
     @_args_lock
     def get_timevars(self, timeout=5, warn=True):
         "get time values for variable"
-        dtype = field_types['time'][self.type]
+        dtype = field_types["time"][self.type]
         command = self._caproto_pv.read(data_type=dtype, timeout=timeout)
         info = _parse_dbr_metadata(command.metadata)
         value = command.data
-        info['raw_value'] = value
-        info['value'] = _scalarify(value, command.data_type, command.data_count)
+        info["raw_value"] = value
+        info["value"] = _scalarify(value, command.data_type, command.data_count)
         self._args.update(**info)
 
     @ensure_connection
     def force_read_access_rights(self):
-        'Force a read of access rights, not relying on last event callback.'
+        "Force a read of access rights, not relying on last event callback."
         self._access_rights_changed(self._caproto_pv.channel.access_rights)
 
     def _access_rights_changed(self, access_rights):
         with self._args_lock:
             read_access = AccessRights.READ in access_rights
             write_access = AccessRights.WRITE in access_rights
-            self._args['write_access'] = write_access
-            self._args['read_access'] = read_access
+            self._args["write_access"] = write_access
+            self._args["read_access"] = read_access
 
-            access_strs = ('no access', 'read-only', 'write-only', 'read/write')
-            self._args['access'] = access_strs[access_rights]
+            access_strs = ("no access", "read-only", "write-only", "read/write")
+            self._args["access"] = access_strs[access_rights]
 
-        logger.debug('%r access rights updated', self)
+        logger.debug("%r access rights updated", self)
 
         for cb in self.access_callbacks:
             try:
                 cb(read_access, write_access, pv=self)
             except Exception:
-                logger.exception('Access rights callback failed')
+                logger.exception("Access rights callback failed")
 
     @_args_lock
     def __on_changes(self, command):
@@ -585,12 +670,13 @@ class PV:
             return
         kwd = copy.copy(self._args)
         kwd.update(kwargs)
-        kwd['cb_info'] = (index, self)
-        if hasattr(fcn, '__call__'):
+        kwd["cb_info"] = (index, self)
+        if hasattr(fcn, "__call__"):
             fcn(**kwd)
 
-    def add_callback(self, callback, *, index=None, run_now=False,
-                     with_ctrlvars=True, **kw):
+    def add_callback(
+        self, callback, *, index=None, run_now=False, with_ctrlvars=True, **kw
+    ):
         """add a callback to a PV.  Optional keyword arguments
         set here will be preserved and passed on to the callback
         at runtime.
@@ -637,24 +723,24 @@ class PV:
     @property
     def char_value(self):
         "character string representation of value"
-        return self._getarg('char_value')
+        return self._getarg("char_value")
 
     @property
     def status(self):
         "pv status"
-        return self._getarg('status')
+        return self._getarg("status")
 
     @property
     @_args_lock
     def type(self):
         "pv type"
-        return self._args['type']
+        return self._args["type"]
 
     @property
     @_args_lock
     def typefull(self):
         "pv type"
-        return self._args['typefull']
+        return self._args["typefull"]
 
     @property
     def host(self):
@@ -665,110 +751,110 @@ class PV:
     def count(self):
         """count (number of elements). For array data and later EPICS versions,
         this is equivalent to the .NORD field.  See also 'nelm' property"""
-        if self._args['count'] is not None:
-            return self._args['count']
+        if self._args["count"] is not None:
+            return self._args["count"]
         else:
-            return self._getarg('count')
+            return self._getarg("count")
 
     @property
     def nelm(self):
         """native count (number of elements).
         For array data this will return the full array size (ie, the
         .NELM field).  See also 'count' property"""
-        if self._getarg('count') == 1:
+        if self._getarg("count") == 1:
             return 1
         return self._caproto_pv.channel.native_data_count
 
     @property
     def read_access(self):
         "read access"
-        return self._getarg('read_access')
+        return self._getarg("read_access")
 
     @property
     def write_access(self):
         "write access"
-        return self._getarg('write_access')
+        return self._getarg("write_access")
 
     @property
     def access(self):
         "read/write access as string"
-        return self._getarg('access')
+        return self._getarg("access")
 
     @property
     def severity(self):
         "pv severity"
-        return self._getarg('severity')
+        return self._getarg("severity")
 
     @property
     def timestamp(self):
         "timestamp of last pv action"
-        return self._getarg('timestamp')
+        return self._getarg("timestamp")
 
     @property
     def posixseconds(self):
         """integer seconds for timestamp of last pv action
         using POSIX time convention"""
-        return self._getarg('posixseconds')
+        return self._getarg("posixseconds")
 
     @property
     def nanoseconds(self):
         "integer nanoseconds for timestamp of last pv action"
-        return self._getarg('nanoseconds')
+        return self._getarg("nanoseconds")
 
     @property
     def precision(self):
         "number of digits after decimal point"
-        return self._getarg('precision')
+        return self._getarg("precision")
 
     @property
     def units(self):
         "engineering units for pv"
-        return self._getarg('units')
+        return self._getarg("units")
 
     @property
     def enum_strs(self):
         "list of enumeration strings"
-        return self._getarg('enum_strs')
+        return self._getarg("enum_strs")
 
     @property
     def upper_disp_limit(self):
         "limit"
-        return self._getarg('upper_disp_limit')
+        return self._getarg("upper_disp_limit")
 
     @property
     def lower_disp_limit(self):
         "limit"
-        return self._getarg('lower_disp_limit')
+        return self._getarg("lower_disp_limit")
 
     @property
     def upper_alarm_limit(self):
         "limit"
-        return self._getarg('upper_alarm_limit')
+        return self._getarg("upper_alarm_limit")
 
     @property
     def lower_alarm_limit(self):
         "limit"
-        return self._getarg('lower_alarm_limit')
+        return self._getarg("lower_alarm_limit")
 
     @property
     def lower_warning_limit(self):
         "limit"
-        return self._getarg('lower_warning_limit')
+        return self._getarg("lower_warning_limit")
 
     @property
     def upper_warning_limit(self):
         "limit"
-        return self._getarg('upper_warning_limit')
+        return self._getarg("upper_warning_limit")
 
     @property
     def upper_ctrl_limit(self):
         "limit"
-        return self._getarg('upper_ctrl_limit')
+        return self._getarg("upper_ctrl_limit")
 
     @property
     def lower_ctrl_limit(self):
         "limit"
-        return self._getarg('lower_ctrl_limit')
+        return self._getarg("lower_ctrl_limit")
 
     @property
     def info(self):
@@ -778,90 +864,115 @@ class PV:
     @property
     def put_complete(self):
         "returns True if a put-with-wait has completed"
-        return self._args['put_complete']
+        return self._args["put_complete"]
 
     @_args_lock
     def _getinfo(self):
         "get information paragraph"
         self.get_ctrlvars()
         out = []
-        xtype = self._args['typefull']
+        xtype = self._args["typefull"]
         nt_type = ca.native_type(xtype)
-        fmt = '%i'
+        fmt = "%i"
 
         if nt_type in (ChannelType.FLOAT, ChannelType.DOUBLE):
-            fmt = '%g'
+            fmt = "%g"
         elif nt_type in (ChannelType.CHAR, ChannelType.STRING):
-            fmt = '%s'
+            fmt = "%s"
 
         # self._set_charval(self._args['value'], call_ca=False)
         out.append(f"== {self.pvname}  ({ca.DBR_TYPES[xtype].__name__}) ==")
         if self.count == 1:
-            val = self._args['value']
-            out.append(f'   value      = {fmt}' % val)
+            val = self._args["value"]
+            out.append(f"   value      = {fmt}" % val)
         else:
-            ext = {True: '...', False: ''}[self.count > 10]
+            ext = {True: "...", False: ""}[self.count > 10]
             elems = range(min(5, self.count))
             try:
-                aval = [fmt % self._args['value'][i] for i in elems]
+                aval = [fmt % self._args["value"][i] for i in elems]
             except TypeError:
-                aval = ('unknown',)
+                aval = ("unknown",)
             out.append("   value      = array  [%s%s]" % (",".join(aval), ext))
-        for nam in ('char_value', 'count', 'nelm', 'type', 'units',
-                    'precision', 'host', 'access',
-                    'status', 'severity', 'timestamp',
-                    'posixseconds', 'nanoseconds',
-                    'upper_ctrl_limit', 'lower_ctrl_limit',
-                    'upper_disp_limit', 'lower_disp_limit',
-                    'upper_alarm_limit', 'lower_alarm_limit',
-                    'upper_warning_limit', 'lower_warning_limit'):
+        for nam in (
+            "char_value",
+            "count",
+            "nelm",
+            "type",
+            "units",
+            "precision",
+            "host",
+            "access",
+            "status",
+            "severity",
+            "timestamp",
+            "posixseconds",
+            "nanoseconds",
+            "upper_ctrl_limit",
+            "lower_ctrl_limit",
+            "upper_disp_limit",
+            "lower_disp_limit",
+            "upper_alarm_limit",
+            "lower_alarm_limit",
+            "upper_warning_limit",
+            "lower_warning_limit",
+        ):
             if hasattr(self, nam):
                 att = getattr(self, nam)
                 if att is not None:
-                    if nam == 'timestamp':
+                    if nam == "timestamp":
+
                         def fmt_time(tstamp=None):
                             "simple formatter for time values"
                             if tstamp is None:
                                 tstamp = time.time()
                             tstamp, frac = divmod(tstamp, 1)
                             return "%s.%5.5i" % (
-                                time.strftime("%Y-%m-%d %H:%M:%S",
-                                              time.localtime(tstamp)),
-                                round(1.e5 * frac))
+                                time.strftime(
+                                    "%Y-%m-%d %H:%M:%S", time.localtime(tstamp)
+                                ),
+                                round(1.e5 * frac),
+                            )
 
                         att = "%.3f (%s)" % (att, fmt_time(att))
-                    elif nam == 'char_value':
+                    elif nam == "char_value":
                         att = "'%s'" % att
                     if len(nam) < 12:
-                        out.append('   %.11s= %s' % (nam + ' ' * 12, str(att)))
+                        out.append("   %.11s= %s" % (nam + " " * 12, str(att)))
                     else:
-                        out.append('   %.20s= %s' % (nam + ' ' * 20, str(att)))
-        if xtype == 'enum':  # list enum strings
-            out.append('   enum strings: ')
+                        out.append("   %.20s= %s" % (nam + " " * 20, str(att)))
+        if xtype == "enum":  # list enum strings
+            out.append("   enum strings: ")
             for index, nam in enumerate(self.enum_strs):
                 out.append("       %i = %s " % (index, nam))
 
         if self._auto_monitor_sub is not None:
-            msg = 'PV is internally monitored'
-            out.append('   %s, with %i user-defined callbacks:' %
-                       (msg, len(self.callbacks)))
+            msg = "PV is internally monitored"
+            out.append(
+                "   %s, with %i user-defined callbacks:"
+                % (msg, len(self.callbacks))
+            )
             if len(self.callbacks) > 0:
                 for nam in sorted(self.callbacks.keys()):
                     cback = self.callbacks[nam][0]
-                    out.append('      {!r}'.format(cback))
+                    out.append("      {!r}".format(cback))
         else:
-            out.append('   PV is NOT internally monitored')
-        out.append('=============================')
-        return '\n'.join(out)
+            out.append("   PV is NOT internally monitored")
+        out.append("=============================")
+        return "\n".join(out)
 
     @_args_lock
     def _getarg(self, arg):
         "wrapper for property retrieval"
-        if self._args['value'] is None:
+        if self._args["value"] is None:
             self.get()
         if self._args[arg] is None and self.connected:
-            if arg in ('status', 'severity', 'timestamp',
-                       'posixseconds', 'nanoseconds'):
+            if arg in (
+                "status",
+                "severity",
+                "timestamp",
+                "posixseconds",
+                "nanoseconds",
+            ):
                 self.get_timevars(warn=False)
             else:
                 self.get_ctrlvars(warn=False)
@@ -871,7 +982,7 @@ class PV:
         "string representation"
 
         if self.connected:
-            if self._args['count'] == 1:  # self.count == 1:
+            if self._args["count"] == 1:  # self.count == 1:
                 return self._fmtsca.format(**self._args)
             else:
                 return self._fmtarr.format(**self._args)
@@ -910,8 +1021,14 @@ def caput(pvname, value, wait=False, timeout=60):
         return thispv.put(value, wait=wait, timeout=timeout)
 
 
-def caget(pvname, as_string=False, count=None, as_numpy=True,
-          use_monitor=False, timeout=5.0):
+def caget(
+    pvname,
+    as_string=False,
+    count=None,
+    as_numpy=True,
+    use_monitor=False,
+    timeout=5.0,
+):
     """caget(pvname, as_string=False)
     simple get of a pv's value..
        >>> x = caget('xx.VAL')
@@ -929,11 +1046,14 @@ def caget(pvname, as_string=False, count=None, as_numpy=True,
     if thispv.connected:
         if as_string:
             thispv.get_ctrlvars()
-        timeout -= (time.time() - start_time)
-        val = thispv.get(count=count, timeout=timeout,
-                         use_monitor=use_monitor,
-                         as_string=as_string,
-                         as_numpy=as_numpy)
+        timeout -= time.time() - start_time
+        val = thispv.get(
+            count=count,
+            timeout=timeout,
+            use_monitor=use_monitor,
+            as_string=as_string,
+            as_numpy=as_numpy,
+        )
         return val
 
 
@@ -958,8 +1078,14 @@ def cainfo(pvname, print_out=True):
             return thispv.info
 
 
-def caget_many(pvlist, as_string=False, count=None, as_numpy=True, timeout=5.0,
-               context=None):
+def caget_many(
+    pvlist,
+    as_string=False,
+    count=None,
+    as_numpy=True,
+    timeout=5.0,
+    context=None,
+):
     """get values for a list of PVs
 
     This does not maintain PV objects, and works as fast
@@ -979,26 +1105,32 @@ def caget_many(pvlist, as_string=False, count=None, as_numpy=True, timeout=5.0,
                 pending_pvs.remove(pv)
         time.sleep(0.01)
 
-    get_kw = dict(as_string=as_string,
-                  as_numpy=as_numpy,
-                  requested_count=count,
-                  enum_strings=None,  # TODO?
-                  )
+    get_kw = dict(
+        as_string=as_string,
+        as_numpy=as_numpy,
+        requested_count=count,
+        enum_strings=None,  # TODO?
+    )
 
     def final_get(pv):
         full_type = pv.channel.native_data_type
-        info = _read_response_to_pyepics(full_type=full_type,
-                                         command=readings[pv])
-        return _pyepics_get_value(value=info['raw_value'],
-                                  string_value=info['char_value'],
-                                  full_type=pv.channel.native_data_type,
-                                  native_count=pv.channel.native_data_count,
-                                  **get_kw)
+        info = _read_response_to_pyepics(
+            full_type=full_type, command=readings[pv]
+        )
+        return _pyepics_get_value(
+            value=info["raw_value"],
+            string_value=info["char_value"],
+            full_type=pv.channel.native_data_type,
+            native_count=pv.channel.native_data_count,
+            **get_kw,
+        )
+
     return [final_get(pv) for pv in pvs]
 
 
-def caput_many(pvlist, values, wait=False, connection_timeout=None,
-               put_timeout=60):
+def caput_many(
+    pvlist, values, wait=False, connection_timeout=None, put_timeout=60
+):
     """put values to a list of PVs, as fast as possible
 
     This does not maintain the PV objects it makes.
@@ -1024,16 +1156,17 @@ def caput_many(pvlist, values, wait=False, connection_timeout=None,
     # TODO: context.get_pvs(...)
 
     out = []
-    pvs = [PV(name, auto_monitor=False, connection_timeout=connection_timeout)
-           for name in pvlist]
+    pvs = [
+        PV(name, auto_monitor=False, connection_timeout=connection_timeout)
+        for name in pvlist
+    ]
 
-    wait_all = (wait == 'all')
-    wait_each = (wait == 'each')
+    wait_all = wait == "all"
+    wait_each = wait == "each"
     for p, v in zip(pvs, values):
         try:
             p.wait_for_connection(connection_timeout)
-            p.put(v, wait=wait_each, timeout=put_timeout,
-                  use_complete=wait_all)
+            p.put(v, wait=wait_each, timeout=put_timeout, use_complete=wait_all)
         except TimeoutError:
             out.append(-1)
         else:
@@ -1047,5 +1180,4 @@ def caput_many(pvlist, values, wait=False, connection_timeout=None,
         elapsed_time = time.time() - start_time
         if elapsed_time > put_timeout:
             break
-    return [1 if (p.connected and p.put_complete) else -1
-            for p in pvs]
+    return [1 if (p.connected and p.put_complete) else -1 for p in pvs]

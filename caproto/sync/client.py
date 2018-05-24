@@ -26,12 +26,12 @@ import subprocess
 import sys
 
 import caproto as ca
-from .._dbr import (field_types, ChannelType, native_type, SubscriptionType)
+from .._dbr import field_types, ChannelType, native_type, SubscriptionType
 from .._utils import ErrorResponseReceived, CaprotoError
 from .repeater import run as run_repeater
 
 
-__all__ = ['get', 'put', 'monitor']
+__all__ = ["get", "put", "monitor"]
 
 
 CA_SERVER_PORT = 5064  # just a default
@@ -41,7 +41,7 @@ sockets = {}
 
 ca_logger = logging.getLogger()
 handler = logging.StreamHandler(sys.stdout)
-handler.setFormatter(logging.Formatter('[%(name)s] %(message)s'))
+handler.setFormatter(logging.Formatter("[%(name)s] %(message)s"))
 ca_logger.addHandler(handler)
 
 
@@ -65,26 +65,27 @@ def search(pv_name, logger, udp_sock, timeout, *, max_retries=2):
     b.log.setLevel(logger.level)
 
     # Send registration request to the repeater
-    logger.debug('Registering with the Channel Access repeater.')
+    logger.debug("Registering with the Channel Access repeater.")
     bytes_to_send = b.send(ca.RepeaterRegisterRequest())
 
-    repeater_port = os.environ.get('EPICS_CA_REPEATER_PORT', 5065)
+    repeater_port = os.environ.get("EPICS_CA_REPEATER_PORT", 5065)
     for host in ca.get_address_list():
         udp_sock.sendto(bytes_to_send, (host, repeater_port))
 
     logger.debug("Searching for '%s'....", pv_name)
-    bytes_to_send = b.send(ca.VersionRequest(0, 13),
-                           ca.SearchRequest(pv_name, 0, 13))
+    bytes_to_send = b.send(
+        ca.VersionRequest(0, 13), ca.SearchRequest(pv_name, 0, 13)
+    )
 
     def send_search():
         for host in ca.get_address_list():
-            if ':' in host:
-                host, _, specified_port = host.partition(':')
+            if ":" in host:
+                host, _, specified_port = host.partition(":")
                 dest = (host, int(specified_port))
             else:
                 dest = (host, CA_SERVER_PORT)
             udp_sock.sendto(bytes_to_send, dest)
-            logger.debug('Search request sent to %r.', dest)
+            logger.debug("Search request sent to %r.", dest)
 
     def check_timeout():
         nonlocal retry_at
@@ -94,8 +95,10 @@ def search(pv_name, logger, udp_sock, timeout, *, max_retries=2):
             retry_at = time.monotonic() + retry_timeout
 
         if time.monotonic() - t > timeout:
-            raise TimeoutError(f"Timed out while awaiting a response "
-                               f"from the search for {pv_name!r}")
+            raise TimeoutError(
+                f"Timed out while awaiting a response "
+                f"from the search for {pv_name!r}"
+            )
 
     # Initial search attempt
     send_search()
@@ -132,14 +135,15 @@ def search(pv_name, logger, udp_sock, timeout, *, max_retries=2):
 
 def make_channel(pv_name, logger, udp_sock, priority, timeout):
     address = search(pv_name, logger, udp_sock, timeout)
-    circuit = ca.VirtualCircuit(our_role=ca.CLIENT,
-                                address=address,
-                                priority=priority)
+    circuit = ca.VirtualCircuit(
+        our_role=ca.CLIENT, address=address, priority=priority
+    )
     # Set circuit log level to match our logger.
     circuit.log.setLevel(logger.level)
     chan = ca.ClientChannel(pv_name, circuit)
-    sockets[chan.circuit] = socket.create_connection(chan.circuit.address,
-                                                     timeout)
+    sockets[chan.circuit] = socket.create_connection(
+        chan.circuit.address, timeout
+    )
 
     try:
         # Initialize our new TCP-based CA connection with a VersionRequest.
@@ -158,7 +162,7 @@ def make_channel(pv_name, logger, udp_sock, priority, timeout):
             if chan.states[ca.CLIENT] is ca.CONNECTED:
                 break
 
-        logger.debug('Channel created.')
+        logger.debug("Channel created.")
     except BaseException:
         sockets[chan.circuit].close()
         raise
@@ -167,11 +171,15 @@ def make_channel(pv_name, logger, udp_sock, priority, timeout):
 
 def spawn_repeater(logger):
     try:
-        subprocess.Popen(['caproto-repeater', '--quiet'], cwd="/",
-                         stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        subprocess.Popen(
+            ["caproto-repeater", "--quiet"],
+            cwd="/",
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+        )
     except Exception:
-        logger.exception('Failed to spawn repeater.')
-    logger.debug('Spawned caproto-repeater process.')
+        logger.exception("Failed to spawn repeater.")
+    logger.debug("Spawned caproto-repeater process.")
 
 
 def read(chan, timeout, data_type):
@@ -186,15 +194,18 @@ def read(chan, timeout, data_type):
         except socket.timeout:
             raise TimeoutError("Timeout while awaiting reading.")
         for command in commands:
-            if (isinstance(command, ca.ReadNotifyResponse) and
-                    command.ioid == req.ioid):
+            if (
+                isinstance(command, ca.ReadNotifyResponse)
+                and command.ioid == req.ioid
+            ):
                 response = command
                 break
             elif isinstance(command, ca.ErrorResponse):
                 raise ErrorResponseReceived(command)
             elif command is ca.DISCONNECTED:
-                raise CaprotoError('Disconnected while waiting for '
-                                   'read response')
+                raise CaprotoError(
+                    "Disconnected while waiting for " "read response"
+                )
         else:
             continue
         break
@@ -202,65 +213,104 @@ def read(chan, timeout, data_type):
 
 
 def get_cli():
-    parser = argparse.ArgumentParser(description='Read the value of a PV.')
-    parser.register('action', 'list_types', _ListTypesAction)
+    parser = argparse.ArgumentParser(description="Read the value of a PV.")
+    parser.register("action", "list_types", _ListTypesAction)
     fmt_group = parser.add_mutually_exclusive_group()
-    parser.add_argument('pv_names', type=str, nargs='+',
-                        help="PV (channel) name(s) separated by spaces")
-    parser.add_argument('-d', type=str, default=None, metavar="DATA_TYPE",
-                        help=("Request a certain data type. Accepts numeric "
-                              "code ('3') or case-insensitive string ('enum')"
-                              ". See --list-types"))
-    fmt_group.add_argument('--format', type=str,
-                           help=("Python format string. Available tokens are "
-                                 "{pv_name} and {response}. Additionally, if "
-                                 "this data type includes time, {timestamp} "
-                                 "and usages like "
-                                 "{timestamp:%%Y-%%m-%%d %%H:%%M:%%S} are "
-                                 "supported."))
-    parser.add_argument('--list-types', action='list_types',
-                        default=argparse.SUPPRESS,
-                        help="List allowed values for -d and exit.")
-    parser.add_argument('-n', action='store_true',
-                        help=("Retrieve enums as integers (default is "
-                              "strings)."))
-    parser.add_argument('--no-repeater', action='store_true',
-                        help=("Do not spawn a Channel Access repeater daemon "
-                              "process."))
-    parser.add_argument('--priority', '-p', type=int, default=0,
-                        help="Channel Access Virtual Circuit priority. "
-                             "Lowest is 0; highest is 99.")
-    fmt_group.add_argument('--terse', '-t', action='store_true',
-                           help=("Display data only. Unpack scalars: "
-                                 "[3.] -> 3."))
-    parser.add_argument('--timeout', '-w', type=float, default=1,
-                        help=("Timeout ('wait') in seconds for server "
-                              "responses."))
-    parser.add_argument('--verbose', '-v', action='store_true',
-                        help="Show DEBUG log messages.")
+    parser.add_argument(
+        "pv_names",
+        type=str,
+        nargs="+",
+        help="PV (channel) name(s) separated by spaces",
+    )
+    parser.add_argument(
+        "-d",
+        type=str,
+        default=None,
+        metavar="DATA_TYPE",
+        help=(
+            "Request a certain data type. Accepts numeric "
+            "code ('3') or case-insensitive string ('enum')"
+            ". See --list-types"
+        ),
+    )
+    fmt_group.add_argument(
+        "--format",
+        type=str,
+        help=(
+            "Python format string. Available tokens are "
+            "{pv_name} and {response}. Additionally, if "
+            "this data type includes time, {timestamp} "
+            "and usages like "
+            "{timestamp:%%Y-%%m-%%d %%H:%%M:%%S} are "
+            "supported."
+        ),
+    )
+    parser.add_argument(
+        "--list-types",
+        action="list_types",
+        default=argparse.SUPPRESS,
+        help="List allowed values for -d and exit.",
+    )
+    parser.add_argument(
+        "-n",
+        action="store_true",
+        help=("Retrieve enums as integers (default is " "strings)."),
+    )
+    parser.add_argument(
+        "--no-repeater",
+        action="store_true",
+        help=("Do not spawn a Channel Access repeater daemon " "process."),
+    )
+    parser.add_argument(
+        "--priority",
+        "-p",
+        type=int,
+        default=0,
+        help="Channel Access Virtual Circuit priority. "
+        "Lowest is 0; highest is 99.",
+    )
+    fmt_group.add_argument(
+        "--terse",
+        "-t",
+        action="store_true",
+        help=("Display data only. Unpack scalars: " "[3.] -> 3."),
+    )
+    parser.add_argument(
+        "--timeout",
+        "-w",
+        type=float,
+        default=1,
+        help=("Timeout ('wait') in seconds for server " "responses."),
+    )
+    parser.add_argument(
+        "--verbose", "-v", action="store_true", help="Show DEBUG log messages."
+    )
     args = parser.parse_args()
     data_type = parse_data_type(args.d)
     try:
         for pv_name in args.pv_names:
-            response = get(pv_name=pv_name,
-                           data_type=data_type,
-                           verbose=args.verbose, timeout=args.timeout,
-                           priority=args.priority,
-                           force_int_enums=args.n,
-                           repeater=not args.no_repeater)
+            response = get(
+                pv_name=pv_name,
+                data_type=data_type,
+                verbose=args.verbose,
+                timeout=args.timeout,
+                priority=args.priority,
+                force_int_enums=args.n,
+                repeater=not args.no_repeater,
+            )
             if args.format is None:
-                format_str = '{pv_name: <40}  {response.data}'
+                format_str = "{pv_name: <40}  {response.data}"
             else:
                 format_str = args.format
             if args.terse:
                 if len(response.data) == 1:
-                    format_str = '{response.data[0]}'
+                    format_str = "{response.data[0]}"
                 else:
-                    format_str = '{response.data}'
+                    format_str = "{response.data}"
             tokens = dict(pv_name=pv_name, response=response)
-            if hasattr(response.metadata, 'timestamp'):
+            if hasattr(response.metadata, "timestamp"):
                 dt = datetime.fromtimestamp(response.metadata.timestamp)
-                tokens['timestamp'] = dt
+                tokens["timestamp"] = dt
             print(format_str.format(**tokens))
 
     except BaseException as exc:
@@ -272,8 +322,16 @@ def get_cli():
             print(exc)
 
 
-def get(pv_name, *, data_type=None, verbose=False, timeout=1, priority=0,
-        force_int_enums=False, repeater=True):
+def get(
+    pv_name,
+    *,
+    data_type=None,
+    verbose=False,
+    timeout=1,
+    priority=0,
+    force_int_enums=False,
+    repeater=True,
+):
     """
     Read a Channel.
 
@@ -304,11 +362,11 @@ def get(pv_name, *, data_type=None, verbose=False, timeout=1, priority=0,
     Get the value of a Channel named 'cat'.
     >>> get('cat').data
     """
-    logger = logging.getLogger('get')
+    logger = logging.getLogger("get")
     if verbose:
-        level = 'DEBUG'
+        level = "DEBUG"
     else:
-        level = 'INFO'
+        level = "INFO"
     logger.setLevel(level)
     handler.setLevel(level)
     ca_logger.setLevel(level)
@@ -326,8 +384,11 @@ def get(pv_name, *, data_type=None, verbose=False, timeout=1, priority=0,
     try:
         logger.debug("Detected native data_type %r.", chan.native_data_type)
         ntype = native_type(chan.native_data_type)  # abundance of caution
-        if ((ntype is ChannelType.ENUM) and
-                (data_type is None) and (not force_int_enums)):
+        if (
+            (ntype is ChannelType.ENUM)
+            and (data_type is None)
+            and (not force_int_enums)
+        ):
             logger.debug("Changing requested data_type to STRING.")
             data_type = ChannelType.STRING
         return read(chan, timeout, data_type=data_type)
@@ -340,58 +401,87 @@ def get(pv_name, *, data_type=None, verbose=False, timeout=1, priority=0,
 
 
 def monitor_cli():
-    parser = argparse.ArgumentParser(description='Read the value of a PV.')
+    parser = argparse.ArgumentParser(description="Read the value of a PV.")
     fmt_group = parser.add_mutually_exclusive_group()
-    parser.add_argument('pv_names', type=str, nargs='+',
-                        help="PV (channel) name")
-    fmt_group.add_argument('--format', type=str,
-                           help=("Python format string. Available tokens are "
-                                 "{pv_name} and {response}. Additionally, if "
-                                 "this data type includes time, {timestamp}, "
-                                 "{timedelta} and usages like "
-                                 "{timestamp:%%Y-%%m-%%d %%H:%%M:%%S} are "
-                                 "supported."))
-    parser.add_argument('-m', type=str, metavar='MASK', default='va',
-                        help=("Channel Access mask. Any combination of "
-                              "'v' (value), 'a' (alarm), 'l' (log/archive), "
-                              "'p' (property). Default is 'va'."))
-    parser.add_argument('-n', action='store_true',
-                        help=("Retrieve enums as integers (default is "
-                              "strings)."))
-    parser.add_argument('--no-repeater', action='store_true',
-                        help=("Do not spawn a Channel Access repeater daemon "
-                              "process."))
-    parser.add_argument('--priority', '-p', type=int, default=0,
-                        help="Channel Access Virtual Circuit priority. "
-                             "Lowest is 0; highest is 99.")
-    parser.add_argument('--timeout', '-w', type=float, default=1,
-                        help=("Timeout ('wait') in seconds for server "
-                              "responses."))
-    parser.add_argument('--verbose', '-v', action='store_true',
-                        help="Show DEBUG log messages.")
+    parser.add_argument(
+        "pv_names", type=str, nargs="+", help="PV (channel) name"
+    )
+    fmt_group.add_argument(
+        "--format",
+        type=str,
+        help=(
+            "Python format string. Available tokens are "
+            "{pv_name} and {response}. Additionally, if "
+            "this data type includes time, {timestamp}, "
+            "{timedelta} and usages like "
+            "{timestamp:%%Y-%%m-%%d %%H:%%M:%%S} are "
+            "supported."
+        ),
+    )
+    parser.add_argument(
+        "-m",
+        type=str,
+        metavar="MASK",
+        default="va",
+        help=(
+            "Channel Access mask. Any combination of "
+            "'v' (value), 'a' (alarm), 'l' (log/archive), "
+            "'p' (property). Default is 'va'."
+        ),
+    )
+    parser.add_argument(
+        "-n",
+        action="store_true",
+        help=("Retrieve enums as integers (default is " "strings)."),
+    )
+    parser.add_argument(
+        "--no-repeater",
+        action="store_true",
+        help=("Do not spawn a Channel Access repeater daemon " "process."),
+    )
+    parser.add_argument(
+        "--priority",
+        "-p",
+        type=int,
+        default=0,
+        help="Channel Access Virtual Circuit priority. "
+        "Lowest is 0; highest is 99.",
+    )
+    parser.add_argument(
+        "--timeout",
+        "-w",
+        type=float,
+        default=1,
+        help=("Timeout ('wait') in seconds for server " "responses."),
+    )
+    parser.add_argument(
+        "--verbose", "-v", action="store_true", help="Show DEBUG log messages."
+    )
     args = parser.parse_args()
 
     mask = 0
-    if 'v' in args.m:
+    if "v" in args.m:
         mask |= SubscriptionType.DBE_VALUE
-    if 'a' in args.m:
+    if "a" in args.m:
         mask |= SubscriptionType.DBE_ALARM
-    if 'l' in args.m:
+    if "l" in args.m:
         mask |= SubscriptionType.DBE_LOG
-    if 'p' in args.m:
+    if "p" in args.m:
         mask |= SubscriptionType.DBE_PROPERTY
 
     history = []
 
     def callback(pv_name, response):
         if args.format is None:
-            format_str = ("{pv_name: <40}  {timestamp:%Y-%m-%d %H:%M:%S} "
-                          "{response.data}")
+            format_str = (
+                "{pv_name: <40}  {timestamp:%Y-%m-%d %H:%M:%S} "
+                "{response.data}"
+            )
         else:
             format_str = args.format
         tokens = dict(pv_name=pv_name, response=response)
         dt = datetime.fromtimestamp(response.metadata.timestamp)
-        tokens['timestamp'] = dt
+        tokens["timestamp"] = dt
         if history:
             # Add a {timedelta} token using the previous timestamp.
             td = dt - history.pop()
@@ -401,15 +491,20 @@ def monitor_cli():
             # update is.
             td = datetime.fromtimestamp(time.time()) - dt
         history.append(dt)
-        tokens['timedelta'] = td
+        tokens["timedelta"] = td
         print(format_str.format(**tokens), flush=True)
+
     try:
-        monitor(*args.pv_names,
-                callback=callback, mask=mask,
-                verbose=args.verbose, timeout=args.timeout,
-                priority=args.priority,
-                force_int_enums=args.n,
-                repeater=not args.no_repeater)
+        monitor(
+            *args.pv_names,
+            callback=callback,
+            mask=mask,
+            verbose=args.verbose,
+            timeout=args.timeout,
+            priority=args.priority,
+            force_int_enums=args.n,
+            repeater=not args.no_repeater,
+        )
     except BaseException as exc:
         if args.verbose:
             # Show the full traceback.
@@ -419,8 +514,16 @@ def monitor_cli():
             print(exc)
 
 
-def monitor(*pv_names, callback, mask=None, verbose=False, timeout=1,
-            priority=0, force_int_enums=False, repeater=True):
+def monitor(
+    *pv_names,
+    callback,
+    mask=None,
+    verbose=False,
+    timeout=1,
+    priority=0,
+    force_int_enums=False,
+    repeater=True,
+):
     """
     Monitor one or more Channels indefinitely.
 
@@ -456,11 +559,11 @@ def monitor(*pv_names, callback, mask=None, verbose=False, timeout=1,
     """
     if mask is None:
         mask = SubscriptionType.DBE_VALUE | SubscriptionType.DBE_ALARM
-    logger = logging.getLogger('monitor')
+    logger = logging.getLogger("monitor")
     if verbose:
-        level = 'DEBUG'
+        level = "DEBUG"
     else:
-        level = 'INFO'
+        level = "INFO"
     logger.setLevel(level)
     handler.setLevel(level)
     ca_logger.setLevel(level)
@@ -482,21 +585,20 @@ def monitor(*pv_names, callback, mask=None, verbose=False, timeout=1,
         # Subscribe to all the channels.
         sub_ids = {}
         for chan in channels:
-            logger.debug("Detected native data_type %r.",
-                         chan.native_data_type)
+            logger.debug("Detected native data_type %r.", chan.native_data_type)
 
             # abundance of caution
-            ntype = field_types['native'][chan.native_data_type]
-            if ((ntype is ChannelType.ENUM) and (not force_int_enums)):
+            ntype = field_types["native"][chan.native_data_type]
+            if (ntype is ChannelType.ENUM) and (not force_int_enums):
                 ntype = ChannelType.STRING
-            time_type = field_types['time'][ntype]
+            time_type = field_types["time"][ntype]
             # Adjust the timeout during monitoring.
             sockets[chan.circuit].settimeout(None)
             logger.debug("Subscribing with data_type %r.", time_type)
             req = chan.subscribe(data_type=time_type, mask=mask)
             send(chan.circuit, req)
             sub_ids[req.subscriptionid] = chan
-        logger.debug('Subscribed. Building socket selector.')
+        logger.debug("Subscribed. Building socket selector.")
         try:
             circuits = set(chan.circuit for chan in channels)
             selector = selectors.DefaultSelector()
@@ -505,7 +607,7 @@ def monitor(*pv_names, callback, mask=None, verbose=False, timeout=1,
                 sock = sockets[circuit]
                 sock_to_circuit[sock] = circuit
                 selector.register(sock, selectors.EVENT_READ)
-            logger.debug('Continuing until SIGINT is received....')
+            logger.debug("Continuing until SIGINT is received....")
             while True:
                 events = selector.select(timeout=0.1)
                 for selector_key, mask in events:
@@ -521,7 +623,7 @@ def monitor(*pv_names, callback, mask=None, verbose=False, timeout=1,
                         if chan:
                             callback(chan.name, response)
         except KeyboardInterrupt:
-            logger.debug('Received SIGINT. Closing.')
+            logger.debug("Received SIGINT. Closing.")
             pass
     finally:
         try:
@@ -536,57 +638,79 @@ def monitor(*pv_names, callback, mask=None, verbose=False, timeout=1,
 
 
 def put_cli():
-    parser = argparse.ArgumentParser(description='Write a value to a PV.')
+    parser = argparse.ArgumentParser(description="Write a value to a PV.")
     fmt_group = parser.add_mutually_exclusive_group()
-    parser.add_argument('pv_name', type=str,
-                        help="PV (channel) name")
-    parser.add_argument('data', type=str,
-                        help="Value or values to write.")
-    fmt_group.add_argument('--format', type=str,
-                           help=("Python format string. Available tokens are "
-                                 "{pv_name} and {response}. Additionally, "
-                                 "this data type includes time, {timestamp} "
-                                 "and usages like "
-                                 "{timestamp:%%Y-%%m-%%d %%H:%%M:%%S} are "
-                                 "supported."))
-    parser.add_argument('--no-repeater', action='store_true',
-                        help=("Do not spawn a Channel Access repeater daemon "
-                              "process."))
-    parser.add_argument('--priority', '-p', type=int, default=0,
-                        help="Channel Access Virtual Circuit priority. "
-                             "Lowest is 0; highest is 99.")
-    fmt_group.add_argument('--terse', '-t', action='store_true',
-                           help=("Display data only. Unpack scalars: "
-                                 "[3.] -> 3."))
-    parser.add_argument('--timeout', '-w', type=float, default=1,
-                        help=("Timeout ('wait') in seconds for server "
-                              "responses."))
-    parser.add_argument('--verbose', '-v', action='store_true',
-                        help="Show DEBUG log messages.")
+    parser.add_argument("pv_name", type=str, help="PV (channel) name")
+    parser.add_argument("data", type=str, help="Value or values to write.")
+    fmt_group.add_argument(
+        "--format",
+        type=str,
+        help=(
+            "Python format string. Available tokens are "
+            "{pv_name} and {response}. Additionally, "
+            "this data type includes time, {timestamp} "
+            "and usages like "
+            "{timestamp:%%Y-%%m-%%d %%H:%%M:%%S} are "
+            "supported."
+        ),
+    )
+    parser.add_argument(
+        "--no-repeater",
+        action="store_true",
+        help=("Do not spawn a Channel Access repeater daemon " "process."),
+    )
+    parser.add_argument(
+        "--priority",
+        "-p",
+        type=int,
+        default=0,
+        help="Channel Access Virtual Circuit priority. "
+        "Lowest is 0; highest is 99.",
+    )
+    fmt_group.add_argument(
+        "--terse",
+        "-t",
+        action="store_true",
+        help=("Display data only. Unpack scalars: " "[3.] -> 3."),
+    )
+    parser.add_argument(
+        "--timeout",
+        "-w",
+        type=float,
+        default=1,
+        help=("Timeout ('wait') in seconds for server " "responses."),
+    )
+    parser.add_argument(
+        "--verbose", "-v", action="store_true", help="Show DEBUG log messages."
+    )
     args = parser.parse_args()
     try:
-        initial, final = put(pv_name=args.pv_name, data=args.data,
-                             verbose=args.verbose, timeout=args.timeout,
-                             priority=args.priority,
-                             repeater=not args.no_repeater)
+        initial, final = put(
+            pv_name=args.pv_name,
+            data=args.data,
+            verbose=args.verbose,
+            timeout=args.timeout,
+            priority=args.priority,
+            repeater=not args.no_repeater,
+        )
         if args.format is None:
-            format_str = '{pv_name: <40}  {response.data}'
+            format_str = "{pv_name: <40}  {response.data}"
         else:
             format_str = args.format
         if args.terse:
             if len(initial.data) == 1:
-                format_str = '{response.data[0]}'
+                format_str = "{response.data[0]}"
             else:
-                format_str = '{response.data}'
+                format_str = "{response.data}"
         tokens = dict(pv_name=args.pv_name, response=initial)
-        if hasattr(initial.metadata, 'timestamp'):
+        if hasattr(initial.metadata, "timestamp"):
             dt = datetime.fromtimestamp(initial.metadata.timestamp)
-            tokens['timestamp'] = dt
+            tokens["timestamp"] = dt
         print(format_str.format(**tokens))
         tokens = dict(pv_name=args.pv_name, response=final)
-        if hasattr(final.metadata, 'timestamp'):
+        if hasattr(final.metadata, "timestamp"):
             dt = datetime.fromtimestamp(final.metadata.timestamp)
-            tokens['timestamp'] = dt
+            tokens["timestamp"] = dt
         tokens = dict(pv_name=args.pv_name, response=final)
         print(format_str.format(**tokens))
     except BaseException as exc:
@@ -598,9 +722,17 @@ def put_cli():
             print(exc)
 
 
-def put(pv_name, data, *, data_type=None, metadata=None,
-        verbose=False, timeout=1, priority=0,
-        repeater=True):
+def put(
+    pv_name,
+    data,
+    *,
+    data_type=None,
+    metadata=None,
+    verbose=False,
+    timeout=1,
+    priority=0,
+    repeater=True,
+):
     """
     Write to a Channel.
 
@@ -634,11 +766,11 @@ def put(pv_name, data, *, data_type=None, metadata=None,
     >>> initial, final = put('cat', 5)
     """
     raw_data = data
-    logger = logging.getLogger('put')
+    logger = logging.getLogger("put")
     if verbose:
-        level = 'DEBUG'
+        level = "DEBUG"
     else:
-        level = 'INFO'
+        level = "INFO"
     logger.setLevel(level)
     handler.setLevel(level)
     ca_logger.setLevel(level)
@@ -656,8 +788,8 @@ def put(pv_name, data, *, data_type=None, metadata=None,
     if not isinstance(data, Iterable) or isinstance(data, (str, bytes)):
         data = [data]
     if data and isinstance(data[0], str):
-        data = [val.encode('latin-1') for val in data]
-    logger.debug('Data argument %s parsed as %r.', raw_data, data)
+        data = [val.encode("latin-1") for val in data]
+    logger.debug("Data argument %s parsed as %r.", raw_data, data)
 
     udp_sock = ca.bcast_socket()
     try:
@@ -668,7 +800,7 @@ def put(pv_name, data, *, data_type=None, metadata=None,
     try:
         logger.debug("Detected native data_type %r.", chan.native_data_type)
         # abundance of caution
-        ntype = field_types['native'][chan.native_data_type]
+        ntype = field_types["native"][chan.native_data_type]
         # Stash initial value
         logger.debug("Taking 'initial' reading before writing.")
         initial_response = read(chan, timeout, None)
@@ -691,14 +823,17 @@ def put(pv_name, data, *, data_type=None, metadata=None,
             except socket.timeout:
                 raise TimeoutError("Timeout while awaiting write reply.")
             for command in commands:
-                if (isinstance(command, ca.WriteNotifyResponse) and
-                        command.ioid == req.ioid):
+                if (
+                    isinstance(command, ca.WriteNotifyResponse)
+                    and command.ioid == req.ioid
+                ):
                     break
                 elif isinstance(command, ca.ErrorResponse):
                     raise ErrorResponseReceived(command)
                 elif command is ca.DISCONNECTED:
-                    raise CaprotoError('Disconnected while waiting for '
-                                       'write response')
+                    raise CaprotoError(
+                        "Disconnected while waiting for " "write response"
+                    )
             else:
                 continue
             break
@@ -721,22 +856,29 @@ Run a Channel Access Repeater.
 If the Repeater port is already in use, assume a Repeater is already running
 and exit. That port number is set by the environment variable
 EPICS_CA_REPEATER_PORT. It defaults to the standard 5065. The current value is
-{}.""".format(os.environ.get('EPICS_CA_REPEATER_PORT', 5065)))
+{}.""".format(
+            os.environ.get("EPICS_CA_REPEATER_PORT", 5065)
+        )
+    )
 
     group = parser.add_mutually_exclusive_group()
-    group.add_argument('-q', '--quiet', action='store_true',
-                       help=("Suppress INFO log messages. "
-                             "(Still show WARNING or higher.)"))
-    group.add_argument('-v', '--verbose', action='store_true',
-                       help="Show DEBUG log messages.")
+    group.add_argument(
+        "-q",
+        "--quiet",
+        action="store_true",
+        help=("Suppress INFO log messages. " "(Still show WARNING or higher.)"),
+    )
+    group.add_argument(
+        "-v", "--verbose", action="store_true", help="Show DEBUG log messages."
+    )
     args = parser.parse_args()
     if args.verbose:
-        level = 'DEBUG'
+        level = "DEBUG"
     elif args.quiet:
-        level = 'WARNING'
+        level = "WARNING"
     else:
-        level = 'INFO'
-    logger = logging.getLogger('repeater')
+        level = "INFO"
+    logger = logging.getLogger("repeater")
     logger.setLevel(level)
     handler.setLevel(level)
     ca_logger.setLevel(level)
@@ -776,19 +918,22 @@ class _ListTypesAction(argparse.Action):
     # a special action that allows the usage --list-types to override
     # any 'required args' requirements, the same way that --help does
 
-    def __init__(self,
-                 option_strings,
-                 dest=argparse.SUPPRESS,
-                 default=argparse.SUPPRESS,
-                 help=None):
+    def __init__(
+        self,
+        option_strings,
+        dest=argparse.SUPPRESS,
+        default=argparse.SUPPRESS,
+        help=None,
+    ):
         super(_ListTypesAction, self).__init__(
             option_strings=option_strings,
             dest=dest,
             default=default,
             nargs=0,
-            help=help)
+            help=help,
+        )
 
     def __call__(self, parser, namespace, values, option_string=None):
         for elem in ChannelType:
-            print(f'{elem.value: <2} {elem.name}')
+            print(f"{elem.value: <2} {elem.name}")
         parser.exit()

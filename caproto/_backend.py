@@ -9,21 +9,20 @@ logger = logging.getLogger(__name__)
 try:
     import numpy  # noqa
 except ImportError:
-    default_backend = 'array'
+    default_backend = "array"
 else:
-    default_backend = 'numpy'
+    default_backend = "numpy"
 
 
 _backends = {}
 backend = None
 Backend = collections.namedtuple(
-    'Backend',
-    'name epics_to_python python_to_epics type_map array_types'
+    "Backend", "name epics_to_python python_to_epics type_map array_types"
 )
 
 
 def register_backend(new_backend):
-    logger.debug('Backend %r registered', new_backend.name)
+    logger.debug("Backend %r registered", new_backend.name)
     _backends[new_backend.name] = new_backend
 
     if default_backend == new_backend.name and backend is None:
@@ -32,7 +31,7 @@ def register_backend(new_backend):
 
 def select_backend(name):
     global backend
-    logger.debug('Selecting backend: %r', name)
+    logger.debug("Selecting backend: %r", name)
     backend = _backends[name]
     backend_ns.backend_name = backend.name
     backend_ns.python_to_epics = backend.python_to_epics
@@ -42,6 +41,9 @@ def select_backend(name):
 
 
 backend_ns = SimpleNamespace(
-    backend_name=None, python_to_epics=None, epics_to_python=None,
-    type_map=None, array_types=None
+    backend_name=None,
+    python_to_epics=None,
+    epics_to_python=None,
+    type_map=None,
+    array_types=None,
 )

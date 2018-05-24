@@ -4,13 +4,17 @@
 import itertools
 import logging
 
-from ._constants import (DEFAULT_PROTOCOL_VERSION, MAX_ID)
-from ._utils import (CLIENT, SERVER, CaprotoValueError, LocalProtocolError)
+from ._constants import DEFAULT_PROTOCOL_VERSION, MAX_ID
+from ._utils import CLIENT, SERVER, CaprotoValueError, LocalProtocolError
 from ._state import get_exception
-from ._commands import (RepeaterConfirmResponse, RepeaterRegisterRequest,
-                        SearchRequest, SearchResponse, VersionRequest,
-                        read_datagram,
-                        )
+from ._commands import (
+    RepeaterConfirmResponse,
+    RepeaterRegisterRequest,
+    SearchRequest,
+    SearchResponse,
+    VersionRequest,
+    read_datagram,
+)
 
 
 class Broadcaster:
@@ -28,17 +32,19 @@ class Broadcaster:
     protocol_version : integer
         Default is ``DEFAULT_PROTOCOL_VERSION``.
     """
+
     def __init__(self, our_role, protocol_version=DEFAULT_PROTOCOL_VERSION):
         if our_role not in (SERVER, CLIENT):
-            raise CaprotoValueError("role must be caproto.SERVER or "
-                                    "caproto.CLIENT")
+            raise CaprotoValueError(
+                "role must be caproto.SERVER or " "caproto.CLIENT"
+            )
         self.our_role = our_role
         if our_role is CLIENT:
             self.their_role = SERVER
-            abbrev = 'cli'  # just for logger
+            abbrev = "cli"  # just for logger
         else:
             self.their_role = CLIENT
-            abbrev = 'srv'
+            abbrev = "srv"
         self.protocol_version = protocol_version
         self.unanswered_searches = {}  # map search id (cid) to name
         # Unlike VirtualCircuit and Channel, there is very little state to
@@ -66,9 +72,10 @@ class Broadcaster:
         bytes_to_send : bytes
             bytes to send over a socket
         """
-        bytes_to_send = b''
-        self.log.debug("Serializing %d commands into one datagram",
-                       len(commands))
+        bytes_to_send = b""
+        self.log.debug(
+            "Serializing %d commands into one datagram", len(commands)
+        )
         history = []
         for i, command in enumerate(commands):
             self.log.debug("%d of %d %r", 1 + i, len(commands), command)
@@ -94,8 +101,9 @@ class Broadcaster:
         -------
         commands : list
         """
-        self.log.debug("Received datagram from %r with %d bytes.",
-                       address, len(byteslike))
+        self.log.debug(
+            "Received datagram from %r with %d bytes.", address, len(byteslike)
+        )
         commands = read_datagram(byteslike, address, self.their_role)
         return commands
 
@@ -126,18 +134,24 @@ class Broadcaster:
             self._attempted_registration = True
         elif isinstance(command, RepeaterConfirmResponse):
             self._registered = True
-        elif (role is CLIENT and
-              self.our_role is CLIENT and
-              not self._attempted_registration):
-            raise LocalProtocolError("Client must send a "
-                                     "RegisterRepeaterRequest before any "
-                                     "other commands (saw: {})"
-                                     "".format(type(command).__name__))
+        elif (
+            role is CLIENT
+            and self.our_role is CLIENT
+            and not self._attempted_registration
+        ):
+            raise LocalProtocolError(
+                "Client must send a "
+                "RegisterRepeaterRequest before any "
+                "other commands (saw: {})"
+                "".format(type(command).__name__)
+            )
         elif isinstance(command, SearchRequest):
             if VersionRequest not in map(type, history):
                 err = get_exception(self.our_role, command)
-                raise err("A broadcasted SearchResponse must be preceded by a "
-                          "VersionResponse in the same datagram.")
+                raise err(
+                    "A broadcasted SearchResponse must be preceded by a "
+                    "VersionResponse in the same datagram."
+                )
             self.unanswered_searches[command.cid] = command.name
         elif isinstance(command, SearchResponse):
             # TODO Do all versions of Rsrv respect this? Unclear why softIoc
@@ -182,11 +196,13 @@ class Broadcaster:
         if cid is None:
             # TODO all client implementations want to handle cids on their own.
             cid = self.new_search_id()
-        commands = (VersionRequest(0, self.protocol_version),
-                    SearchRequest(name, cid, self.protocol_version))
+        commands = (
+            VersionRequest(0, self.protocol_version),
+            SearchRequest(name, cid, self.protocol_version),
+        )
         return commands
 
-    def register(self, ip='0.0.0.0'):
+    def register(self, ip="0.0.0.0"):
         """
         Generate a valid :class:`RepeaterRegisterRequest`.
 
@@ -202,7 +218,7 @@ class Broadcaster:
         RepeaterRegisterRequest
         """
         if ip is None:
-            ip = '0.0.0.0'
+            ip = "0.0.0.0"
         command = RepeaterRegisterRequest(ip)
 
         # NOTE: consider this enough for a registration attempt.

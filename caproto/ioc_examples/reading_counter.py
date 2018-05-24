@@ -7,6 +7,7 @@ class ReadingCounter(PVGroup):
     """
     Count the number of times that a PV is read.
     """
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.tallies = collections.Counter()
@@ -14,7 +15,7 @@ class ReadingCounter(PVGroup):
     async def my_read(self, instance):
         pv_name = instance.pvspec.attr
         self.tallies.update({pv_name: 1})
-        print('tallies:', self.tallies)
+        print("tallies:", self.tallies)
         await instance.write(self.tallies[pv_name])
         return instance.value
 
@@ -22,7 +23,7 @@ class ReadingCounter(PVGroup):
     B = pvproperty(get=my_read, value=[0])
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # usage: reading_counter.py <PREFIX>
     import sys
     import curio
@@ -31,8 +32,8 @@ if __name__ == '__main__':
     try:
         prefix = sys.argv[1]
     except IndexError:
-        prefix = 'reading_counter:'
+        prefix = "reading_counter:"
 
     ioc = ReadingCounter(prefix=prefix)
-    print('PVs:', list(ioc.pvdb))
+    print("PVs:", list(ioc.pvdb))
     curio.run(start_server(ioc.pvdb))

@@ -18,7 +18,7 @@ import trio
 from collections import OrderedDict, defaultdict
 from trio import socket
 from .._utils import batch_requests, CaprotoError, ThreadsafeCounter
-from .._constants import (STALE_SEARCH_EXPIRATION, SEARCH_MAX_DATAGRAM_BYTES)
+from .._constants import STALE_SEARCH_EXPIRATION, SEARCH_MAX_DATAGRAM_BYTES
 
 
 logger = logging.getLogger(__name__)
@@ -32,16 +32,19 @@ class ChannelReadError(TrioClientError):
     ...
 
 
-if not hasattr(trio.SocketStream, 'sendmsg'):
+if not hasattr(trio.SocketStream, "sendmsg"):
     # monkey-patch in sendmsg in trio
     async def sendmsg(self, buffers):
-        from trio._highlevel_socket import _translate_socket_errors_to_stream_errors  # noqa
+        from trio._highlevel_socket import (
+            _translate_socket_errors_to_stream_errors
+        )  # noqa
+
         if self.socket.did_shutdown_SHUT_WR:
             await trio._core.checkpoint()
             raise trio.ClosedStreamError("can't send data after sending EOF")
         with self._send_conflict_detector.sync:
             with _translate_socket_errors_to_stream_errors():
-                return (await self.socket.sendmsg(buffers))
+                return await self.socket.sendmsg(buffers)
 
     trio.SocketStream.sendmsg = sendmsg
     del sendmsg
@@ -49,6 +52,7 @@ if not hasattr(trio.SocketStream, 'sendmsg'):
 
 class VirtualCircuit:
     "Wraps a caproto.VirtualCircuit and adds transport."
+
     def __init__(self, circuit, *, nursery):
         self.circuit = circuit  # a caproto.VirtualCircuit
         self.nursery = nursery
@@ -70,8 +74,9 @@ class VirtualCircuit:
         self.nursery.start_soon(self._receive_loop)
         self.nursery.start_soon(self._command_queue_loop)
         # Send commands that initialize the Circuit.
-        await self.send(ca.VersionRequest(version=13,
-                                          priority=self.circuit.priority))
+        await self.send(
+            ca.VersionRequest(version=13, priority=self.circuit.priority)
+        )
         host_name = socket.gethostname()
         await self.send(ca.HostNameRequest(name=host_name))
         client_name = getpass.getuser()
@@ -95,15 +100,18 @@ class VirtualCircuit:
                 command = await self.command_queue.get()
                 self.circuit.process_command(command)
             except Exception as ex:
-                logger.error('Command queue evaluation failed: {!r}'
-                             ''.format(command), exc_info=ex)
+                logger.error(
+                    "Command queue evaluation failed: {!r}" "".format(command),
+                    exc_info=ex,
+                )
                 continue
 
             if command is ca.DISCONNECTED:
-                logger.debug('Command queue loop exiting')
+                logger.debug("Command queue loop exiting")
                 break
-            elif isinstance(command, (ca.ReadNotifyResponse,
-                                      ca.WriteNotifyResponse)):
+            elif isinstance(
+                command, (ca.ReadNotifyResponse, ca.WriteNotifyResponse)
+            ):
                 user_event = self.ioids.pop(command.ioid)
                 self.ioid_data[command.ioid] = command
                 user_event.set()
@@ -131,13 +139,14 @@ class VirtualCircuit:
             buffers_to_send = self.circuit.send(*commands)
             async with self._socket_lock:
                 if self.socket is None:
-                    raise RuntimeError('socket connection failed')
+                    raise RuntimeError("socket connection failed")
 
                 await ca.async_send_all(buffers_to_send, self.socket.sendmsg)
 
 
 class Channel:
     """Wraps a VirtualCircuit and a caproto.ClientChannel."""
+
     def __init__(self, circuit, channel):
         self.circuit = circuit  # a VirtualCircuit
         self.channel = channel  # a caproto.ClientChannel
@@ -245,13 +254,14 @@ class Channel:
             await self.wait_on_new_command()
 
     async def wait_on_new_command(self):
-        '''Wait for a new command to come in'''
+        """Wait for a new command to come in"""
         async with self.circuit.new_command_condition:
             await self.circuit.new_command_condition.wait()
 
 
 class SharedBroadcaster:
-    def __init__(self, *, nursery, log_level='ERROR'):
+
+    def __init__(self, *, nursery, log_level="ERROR"):
         self.nursery = nursery
         self.log_level = log_level
         self.broadcaster = ca.Broadcaster(our_role=ca.CLIENT)
@@ -267,7 +277,8 @@ class SharedBroadcaster:
         self.unanswered_searches = {}  # map search id (cid) to name
         self.search_results = {}  # map name to address
         self.new_id = ThreadsafeCounter(
-            dont_clash_with=self.unanswered_searches)
+            dont_clash_with=self.unanswered_searches
+        )
 
     async def send(self, port, *commands):
         """
@@ -275,22 +286,23 @@ class SharedBroadcaster:
         """
         bytes_to_send = self.broadcaster.send(*commands)
         for host in ca.get_address_list():
-            if ':' in host:
-                host, _, specified_port = host.partition(':')
-                await self.udp_sock.sendto(bytes_to_send,
-                                           (host, int(specified_port)))
+            if ":" in host:
+                host, _, specified_port = host.partition(":")
+                await self.udp_sock.sendto(
+                    bytes_to_send, (host, int(specified_port))
+                )
             else:
                 await self.udp_sock.sendto(bytes_to_send, (host, port))
 
     async def disconnect(self):
-        'Disconnect the broadcaster and stop listening'
+        "Disconnect the broadcaster and stop listening"
         async with self._cleanup_condition:
             self._cleanup_event.set()
-            logger.debug('Broadcaster: Disconnecting the command queue loop')
+            logger.debug("Broadcaster: Disconnecting the command queue loop")
             await self.command_bundle_queue.put(ca.DISCONNECTED)
-            logger.debug('Broadcaster: Closing the UDP socket')
+            logger.debug("Broadcaster: Closing the UDP socket")
             self._cleanup_condition.notify_all()
-        logger.debug('Broadcaster disconnect complete')
+        logger.debug("Broadcaster disconnect complete")
 
     async def register(self):
         "Register this client with the CA Repeater."
@@ -308,7 +320,7 @@ class SharedBroadcaster:
         while True:
             async with self._cleanup_condition:
                 if self._cleanup_event.is_set():
-                    logger.debug('Exiting broadcaster recv loop')
+                    logger.debug("Exiting broadcaster recv loop")
                     break
 
             try:
@@ -325,7 +337,7 @@ class SharedBroadcaster:
 
     async def _broadcaster_queue_loop(self):
         await self.nursery.start(self._broadcaster_recv_loop)
-        command = self.broadcaster.register('127.0.0.1')
+        command = self.broadcaster.register("127.0.0.1")
         await self.send(ca.EPICS_CA2_PORT, command)
 
         while True:
@@ -335,8 +347,9 @@ class SharedBroadcaster:
                     break
                 self.broadcaster.process_commands(commands)
             except Exception as ex:
-                logger.error('Broadcaster command queue evaluation failed',
-                             exc_info=ex)
+                logger.error(
+                    "Broadcaster command queue evaluation failed", exc_info=ex
+                )
                 continue
 
             for command in commands:
@@ -345,8 +358,9 @@ class SharedBroadcaster:
                 elif isinstance(command, ca.VersionResponse):
                     # Check that the server version is one we can talk to.
                     if command.version <= 11:
-                        logger.debug('Old client on version %s',
-                                     command.version)
+                        logger.debug(
+                            "Old client on version %s", command.version
+                        )
                         continue
                 elif isinstance(command, ca.SearchResponse):
                     name = self.unanswered_searches.pop(command.cid, None)
@@ -360,16 +374,17 @@ class SharedBroadcaster:
                 async with self.broadcaster_command_condition:
                     self.broadcaster_command_condition.notify_all()
 
-    def get_cached_search_result(self, name, *,
-                                 threshold=STALE_SEARCH_EXPIRATION):
-        'Returns address if found, raises KeyError if missing or stale.'
+    def get_cached_search_result(
+        self, name, *, threshold=STALE_SEARCH_EXPIRATION
+    ):
+        "Returns address if found, raises KeyError if missing or stale."
         address, timestamp = self.search_results[name]
         if time.monotonic() - timestamp > threshold:
             # TODO i have no idea which contexts are using me and are still
             #      alive as in the threaded client
             # Clean up expired result.
             self.search_results.pop(name, None)
-            raise KeyError(f'{name!r}: stale search result')
+            raise KeyError(f"{name!r}: stale search result")
 
         return address
 
@@ -378,7 +393,8 @@ class SharedBroadcaster:
         # Discard any old search result for this name.
         self.search_results.pop(name, None)
         ver_command, search_command = self.broadcaster.search(
-            name, cid=self.new_id())
+            name, cid=self.new_id()
+        )
         # Stash the search ID for recognizes the SearchResponse later.
         self.unanswered_searches[search_command.cid] = name
         # Wait for the SearchResponse.
@@ -415,21 +431,26 @@ class SharedBroadcaster:
         results = defaultdict(list)
 
         while needs_search:
-            logger.debug('Searching for %r PVs....', len(needs_search))
-            requests = (ca.SearchRequest(name, search_id, 13)
-                        for search_id, name in needs_search)
+            logger.debug("Searching for %r PVs....", len(needs_search))
+            requests = (
+                ca.SearchRequest(name, search_id, 13)
+                for search_id, name in needs_search
+            )
             for batch in batch_requests(requests, SEARCH_MAX_DATAGRAM_BYTES):
-                await self.send(ca.EPICS_CA1_PORT, ca.VersionRequest(0, 13),
-                                *batch)
+                await self.send(
+                    ca.EPICS_CA1_PORT, ca.VersionRequest(0, 13), *batch
+                )
 
             with trio.move_on_after(1):
                 await self.wait_on_new_command()
 
             results.clear()
-            found = [(search_id, name) for search_id, name in needs_search
-                     if search_id not in self.unanswered_searches]
-            needs_search = [key for key in needs_search
-                            if key not in found]
+            found = [
+                (search_id, name)
+                for search_id, name in needs_search
+                if search_id not in self.unanswered_searches
+            ]
+            needs_search = [key for key in needs_search if key not in found]
             for search_id, name in found:
                 address, timestamp = self.search_results[name]
                 results[address].append(name)
@@ -438,14 +459,15 @@ class SharedBroadcaster:
                 yield (address, names)
 
     async def wait_on_new_command(self):
-        '''Wait for a new broadcaster command to come in'''
+        """Wait for a new broadcaster command to come in"""
         async with self.broadcaster_command_condition:
             await self.broadcaster_command_condition.wait()
 
 
 class Context:
     "Wraps a caproto.Broadcaster, a UDP socket, and cache of VirtualCircuits."
-    def __init__(self, broadcaster, *, nursery, log_level='ERROR'):
+
+    def __init__(self, broadcaster, *, nursery, log_level="ERROR"):
         self.nursery = nursery
         self.log_level = log_level
         self.circuits = []  # list of VirtualCircuits
@@ -458,12 +480,15 @@ class Context:
         Make a new one if necessary.
         """
         for circuit in self.circuits:
-            if (circuit.circuit.address == address and
-                    circuit.circuit.priority == priority):
+            if (
+                circuit.circuit.address == address
+                and circuit.circuit.priority == priority
+            ):
                 return circuit
 
-        ca_circuit = ca.VirtualCircuit(our_role=ca.CLIENT, address=address,
-                                       priority=priority)
+        ca_circuit = ca.VirtualCircuit(
+            our_role=ca.CLIENT, address=address, priority=priority
+        )
         circuit = VirtualCircuit(ca_circuit, nursery=self.nursery)
         circuit.circuit.log.setLevel(self.log_level)
         self.circuits.append(circuit)
@@ -492,10 +517,10 @@ class Context:
         await circuit.send(chan.create())
         return Channel(circuit, chan)
 
-    async def create_many_channels(self, *names, priority=0,
-                                   wait_for_connection=True,
-                                   move_on_after=5):
-        '''Create many channels in parallel through this context
+    async def create_many_channels(
+        self, *names, priority=0, wait_for_connection=True, move_on_after=5
+    ):
+        """Create many channels in parallel through this context
 
         Parameters
         ----------
@@ -510,7 +535,7 @@ class Context:
         -------
         channel_dict : OrderedDict
             Ordered dictionary of name to Channel
-        '''
+        """
 
         channels = OrderedDict()
 
@@ -519,8 +544,9 @@ class Context:
 
             async for addr, names in self.broadcaster.search_many(*names):
                 for name in names:
-                    channels[name] = await self.create_channel(name,
-                                                               priority=priority)
+                    channels[name] = await self.create_channel(
+                        name, priority=priority
+                    )
 
             if wait_for_connection:
                 for name, channel in channels.items():

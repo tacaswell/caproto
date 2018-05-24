@@ -25,6 +25,7 @@ class ChannelReadError(Exception):
 
 class VirtualCircuit:
     "Wraps a caproto.VirtualCircuit and adds transport."
+
     def __init__(self, circuit):
         self.circuit = circuit  # a caproto.VirtualCircuit
         self.channels = {}  # map cid to Channel
@@ -45,8 +46,9 @@ class VirtualCircuit:
             await curio.spawn(self._receive_loop, daemon=True)
             await curio.spawn(self._command_queue_loop, daemon=True)
             # Send commands that initialize the Circuit.
-            await self.send(ca.VersionRequest(version=13,
-                                              priority=self.circuit.priority))
+            await self.send(
+                ca.VersionRequest(version=13, priority=self.circuit.priority)
+            )
             host_name = await socket.gethostname()
             await self.send(ca.HostNameRequest(name=host_name))
             client_name = getpass.getuser()
@@ -55,8 +57,9 @@ class VirtualCircuit:
     async def _receive_loop(self):
         num_bytes_needed = 0
         while True:
-            bytes_received = await self.socket.recv(max(32768,
-                                                        num_bytes_needed))
+            bytes_received = await self.socket.recv(
+                max(32768, num_bytes_needed)
+            )
             if not len(bytes_received):
                 self.connected = False
                 break
@@ -72,12 +75,15 @@ class VirtualCircuit:
             except curio.TaskCancelled:
                 break
             except Exception as ex:
-                logger.error('Command queue evaluation failed: {!r}'
-                             ''.format(command), exc_info=ex)
+                logger.error(
+                    "Command queue evaluation failed: {!r}" "".format(command),
+                    exc_info=ex,
+                )
                 continue
 
-            if isinstance(command, (ca.ReadNotifyResponse,
-                                    ca.WriteNotifyResponse)):
+            if isinstance(
+                command, (ca.ReadNotifyResponse, ca.WriteNotifyResponse)
+            ):
                 user_event = self.ioids.pop(command.ioid)
                 self.ioid_data[command.ioid] = command
                 await user_event.set()
@@ -105,7 +111,7 @@ class VirtualCircuit:
             buffers_to_send = self.circuit.send(*commands)
             async with self._socket_lock:
                 if self.socket is None:
-                    raise RuntimeError('socket connection failed')
+                    raise RuntimeError("socket connection failed")
 
                 # send bytes over the wire using some caproto utilities
                 await ca.async_send_all(buffers_to_send, self.socket.sendmsg)
@@ -113,6 +119,7 @@ class VirtualCircuit:
 
 class Channel:
     """Wraps a VirtualCircuit and a caproto.ClientChannel."""
+
     def __init__(self, circuit, channel):
         self.circuit = circuit  # a VirtualCircuit
         self.channel = channel  # a caproto.ClientChannel
@@ -214,13 +221,14 @@ class Channel:
         await task.cancel()
 
     async def wait_on_new_command(self):
-        '''Wait for a new command to come in'''
+        """Wait for a new command to come in"""
         async with self.circuit.new_command_condition:
             await self.circuit.new_command_condition.wait()
 
 
 class SharedBroadcaster:
-    def __init__(self, *, log_level='ERROR'):
+
+    def __init__(self, *, log_level="ERROR"):
         self.log_level = log_level
         self.broadcaster = ca.Broadcaster(our_role=ca.CLIENT)
         self.broadcaster.log.setLevel(self.log_level)
@@ -239,10 +247,11 @@ class SharedBroadcaster:
         """
         bytes_to_send = self.broadcaster.send(*commands)
         for host in ca.get_address_list():
-            if ':' in host:
-                host, _, specified_port = host.partition(':')
-                await self.udp_sock.sendto(bytes_to_send,
-                                           (host, int(specified_port)))
+            if ":" in host:
+                host, _, specified_port = host.partition(":")
+                await self.udp_sock.sendto(
+                    bytes_to_send, (host, int(specified_port))
+                )
             else:
                 await self.udp_sock.sendto(bytes_to_send, (host, port))
 
@@ -263,7 +272,7 @@ class SharedBroadcaster:
 
     async def _broadcaster_queue_loop(self):
         await curio.spawn(self._broadcaster_recv_loop, daemon=True)
-        command = self.broadcaster.register('127.0.0.1')
+        command = self.broadcaster.register("127.0.0.1")
         await self.send(ca.EPICS_CA2_PORT, command)
 
         while True:
@@ -273,8 +282,9 @@ class SharedBroadcaster:
             except curio.TaskCancelled:
                 break
             except Exception as ex:
-                logger.error('Broadcaster command queue evaluation failed',
-                             exc_info=ex)
+                logger.error(
+                    "Broadcaster command queue evaluation failed", exc_info=ex
+                )
                 continue
 
             for command in commands:
@@ -283,8 +293,9 @@ class SharedBroadcaster:
                 if isinstance(command, ca.VersionResponse):
                     # Check that the server version is one we can talk to.
                     if command.version <= 11:
-                        logger.debug('Old client on version %s',
-                                     command.version)
+                        logger.debug(
+                            "Old client on version %s", command.version
+                        )
                         continue
                 if isinstance(command, ca.SearchResponse):
                     name = self.unanswered_searches.pop(command.cid, None)
@@ -312,14 +323,15 @@ class SharedBroadcaster:
         return name
 
     async def wait_on_new_command(self):
-        '''Wait for a new broadcaster command to come in'''
+        """Wait for a new broadcaster command to come in"""
         async with self.broadcaster_command_condition:
             await self.broadcaster_command_condition.wait()
 
 
 class Context:
     "Wraps a caproto.Broadcaster, a UDP socket, and cache of VirtualCircuits."
-    def __init__(self, broadcaster, *, log_level='ERROR'):
+
+    def __init__(self, broadcaster, *, log_level="ERROR"):
         self.log_level = log_level
         self.circuits = []  # list of VirtualCircuits
         self.broadcaster = broadcaster
@@ -331,12 +343,15 @@ class Context:
         Make a new one if necessary.
         """
         for circuit in self.circuits:
-            if (circuit.circuit.address == address and
-                    circuit.circuit.priority == priority):
+            if (
+                circuit.circuit.address == address
+                and circuit.circuit.priority == priority
+            ):
                 return circuit
 
-        ca_circuit = ca.VirtualCircuit(our_role=ca.CLIENT, address=address,
-                                       priority=priority)
+        ca_circuit = ca.VirtualCircuit(
+            our_role=ca.CLIENT, address=address, priority=priority
+        )
         circuit = VirtualCircuit(ca_circuit)
         circuit.circuit.log.setLevel(self.log_level)
         self.circuits.append(circuit)
@@ -365,10 +380,10 @@ class Context:
         await circuit.send(chan.create())
         return Channel(circuit, chan)
 
-    async def create_many_channels(self, *names, priority=0,
-                                   wait_for_connection=True,
-                                   move_on_after=2):
-        '''Create many channels in parallel through this context
+    async def create_many_channels(
+        self, *names, priority=0, wait_for_connection=True, move_on_after=2
+    ):
+        """Create many channels in parallel through this context
 
         Parameters
         ----------
@@ -383,7 +398,7 @@ class Context:
         -------
         channel_dict : OrderedDict
             Ordered dictionary of name to Channel
-        '''
+        """
 
         async def connect_one(name):
             await self.search(name)
