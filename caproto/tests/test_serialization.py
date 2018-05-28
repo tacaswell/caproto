@@ -47,7 +47,9 @@ parameter_values = {
     'version': [13],
 }
 
-all_commands = set(ca._commands._commands) - set([Message])
+all_commands = sorted(
+    set(ca._commands._commands) - set([ca.Message]),
+    key=lambda x: x.__name__)
 
 
 def _np_hack(buf):

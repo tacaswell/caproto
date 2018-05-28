@@ -9,6 +9,7 @@ numpy
 pytest_benchmark
 pytest-timeout
 pytest-rerunfailures
+pytest-xdist
 asv
 asks
 ophyd

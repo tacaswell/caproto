@@ -68,14 +68,14 @@ script:
     then
       pip uninstall --yes numpy
     fi
-  - coverage run --parallel-mode run_tests.py  -k 'not bench' --benchmark-disable --timeout=50
+  - coverage run --parallel-mode run_tests.py -k 'not bench' -n $(nproc) --benchmark-disable --dist=loadfile
   - coverage combine --append
 
   - export ASV_ENV_NAME=${TRAVIS_PYTHON_VERSION}_${BASE}
   - |
     if [ $INSTALL_NUMPY ]
     then
-      coverage run --parallel-mode run_tests.py -v --benchmark-only --benchmark-json=pytest_bench.json --benchmark-columns=mean,median,rounds,iterations -k bench --timeout=50 && coverage combine --append
+      coverage run --parallel-mode run_tests.py -v --benchmark-only --benchmark-json=pytest_bench.json --benchmark-columns=mean,median,rounds,iterations -k bench && coverage combine --append
     fi
   - coverage report -m
   - codecov
