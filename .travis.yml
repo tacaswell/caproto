@@ -68,6 +68,7 @@ script:
     then
       pip uninstall --yes numpy
     fi
+  - caproto-repeater &
   - coverage run --parallel-mode run_tests.py -k 'not bench' -n $(nproc) --benchmark-disable --dist=loadfile
   - coverage combine --append
 
