@@ -46,7 +46,7 @@ class Thermo(PVGroup):
         def t_rbv(T0, setpoint, K, omega, Tvar,):
             t = time.monotonic()
             return ((Tvar *
-                     np.exp(-(t - self._T0) / K) *
+                     np.exp(-(t - T0) / K) *
                      np.sin(omega * t)) +
                     setpoint)
 
